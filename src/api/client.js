@@ -1,4 +1,4 @@
-﻿import axios from 'axios'
+import axios from 'axios'
 
 // Read base URL from Vite environment variable with a safe fallback
 // Note: Requests use the existing /api/v1 contract
@@ -17,7 +17,7 @@ export const apiClient = axios.create({
 // Employees API services
 export const employeesApi = {
   getAll: async () => {
-    const response = await apiClient.get('/employees')
+    const response = await apiClient.get('/employees/')
     return response.data
   },
 
@@ -27,7 +27,7 @@ export const employeesApi = {
   },
 
   create: async (employeeData) => {
-    const response = await apiClient.post('/employees', employeeData)
+    const response = await apiClient.post('/employees/', employeeData)
     return response.data
   },
 
