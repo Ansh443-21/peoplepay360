@@ -1,4 +1,4 @@
-import axios from 'axios'
+﻿import axios from 'axios'
 
 // Read base URL from Vite environment variable with a safe fallback
 // Note: Requests use the existing /api/v1 contract
@@ -33,6 +33,57 @@ export const employeesApi = {
 
   update: async (employeeId, employeeData) => {
     const response = await apiClient.patch(`/employees/${employeeId}`, employeeData)
+    return response.data
+  },
+}
+
+// Schedules API services
+export const schedulesApi = {
+  getAll: async (params) => {
+    const response = await apiClient.get('/schedules/', { params })
+    return response.data
+  },
+
+  getById: async (scheduleId) => {
+    const response = await apiClient.get(`/schedules/${scheduleId}`)
+    return response.data
+  },
+
+  create: async (scheduleData) => {
+    const response = await apiClient.post('/schedules/', scheduleData)
+    return response.data
+  },
+
+  update: async (scheduleId, scheduleData) => {
+    const response = await apiClient.patch(`/schedules/${scheduleId}`, scheduleData)
+    return response.data
+  },
+}
+
+// Contracts API services
+export const contractsApi = {
+  getAll: async (params) => {
+    const response = await apiClient.get('/contracts/', { params })
+    return response.data
+  },
+
+  getById: async (contractId) => {
+    const response = await apiClient.get(`/contracts/${contractId}`)
+    return response.data
+  },
+
+  create: async (contractData) => {
+    const response = await apiClient.post('/contracts/', contractData)
+    return response.data
+  },
+
+  update: async (contractId, contractData) => {
+    const response = await apiClient.patch(`/contracts/${contractId}`, contractData)
+    return response.data
+  },
+
+  getActiveForEmployee: async (employeeId) => {
+    const response = await apiClient.get(`/employees/${employeeId}/active-contract`)
     return response.data
   },
 }
