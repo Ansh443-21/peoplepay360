@@ -7,7 +7,7 @@ import Contracts from './pages/Contracts/Contracts.jsx'
 import Schedules from './pages/Schedules/Schedules.jsx'
 import Attendance from './pages/Attendance/Attendance.jsx'
 import TimeOff from './pages/TimeOff/TimeOff.jsx'
-import Payroll from './pages/Payroll/Payroll.jsx'
+import Payroll from './pages/payroll/Payroll.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 
 const router = createBrowserRouter([
