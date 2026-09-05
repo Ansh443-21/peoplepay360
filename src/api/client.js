@@ -1,17 +1,19 @@
-﻿import axios from 'axios'
+import axios from 'axios'
 
-// Read base URL from Vite environment variable with a safe fallback
+// Read base URL from Vite environment variable with a safe fallback to https://peoplepay360.onrender.com
 // Note: Requests use the existing /api/v1 contract
-const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
+const rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || 'https://peoplepay360.onrender.com').trim()
 const normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, '')
-const API_BASE_URL = normalizedBaseUrl ? `${normalizedBaseUrl}/api/v1` : '/api/v1'
+const API_BASE_URL = normalizedBaseUrl.endsWith('/api/v1')
+  ? normalizedBaseUrl
+  : `${normalizedBaseUrl}/api/v1`
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 30000,
 })
 
 // Request interceptor to automatically attach Authorization: Bearer <token>

@@ -116,9 +116,9 @@ function Login() {
     }
   }
 
-  // --- 2. Password Reset Request ---
+  // --- 2. Password Reset Request (Sends 6-digit OTP) ---
   async function handleResetRequestSubmit(e) {
-    e.preventDefault()
+    if (e?.preventDefault) e.preventDefault()
     setErrorMsg('')
     setSuccessMsg('')
 
@@ -131,40 +131,64 @@ function Login() {
 
     try {
       // POST /api/v1/auth/password-reset/request { identifier }
-      const res = await authApi.requestPasswordReset({ identifier: resetIdentifier.trim() })
+      await authApi.requestPasswordReset({ identifier: resetIdentifier.trim() })
 
-      const devToken = res?.reset_token || res?.token || res?.data?.reset_token || ''
-      if (devToken) {
-        setResetToken(devToken)
-      }
-
-      setSuccessMsg('Password reset instructions processed. Please enter your reset token and new password.')
+      setResetToken('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setSuccessMsg('A 6-digit verification code has been sent to your registered email. It expires in 10 minutes.')
       setMode('forgot_reset')
     } catch (err) {
-      console.warn('Password reset request error:', err)
-      if (err.response?.data?.detail) {
-        setErrorMsg(typeof err.response.data.detail === 'string' ? err.response.data.detail : 'Failed to request reset.')
+      console.error('Password reset request error:', err)
+      if (err.response) {
+        if (err.response.status === 404) {
+          const detail = typeof err.response.data?.detail === 'string' && err.response.data.detail !== 'Not Found'
+            ? err.response.data.detail
+            : 'No account found with this username or email.'
+          setErrorMsg(detail)
+        } else if (err.response.data?.detail) {
+          const detail = Array.isArray(err.response.data.detail)
+            ? err.response.data.detail.map((d) => d.msg || JSON.stringify(d)).join(', ')
+            : typeof err.response.data.detail === 'string'
+              ? err.response.data.detail
+              : JSON.stringify(err.response.data.detail)
+          setErrorMsg(detail)
+        } else if (err.response.data?.message) {
+          setErrorMsg(err.response.data.message)
+        } else {
+          setErrorMsg(`Request failed (HTTP ${err.response.status}). Please try again.`)
+        }
+      } else if (err.request) {
+        setErrorMsg('Network error: Unable to reach the server. Please check your connection and try again.')
       } else {
-        setSuccessMsg('Reset request submitted. Enter your reset token to proceed.')
-        setMode('forgot_reset')
+        setErrorMsg(err.message || 'Failed to send verification code. Please try again.')
       }
     } finally {
       setLoading(false)
     }
   }
 
-  // --- 3. Password Reset Confirm ---
+  // --- 3. Password Reset Confirm (Submits OTP as token) ---
   async function handleResetSubmit(e) {
     e.preventDefault()
     setErrorMsg('')
     setSuccessMsg('')
 
-    if (!resetToken.trim()) {
-      setErrorMsg('Please enter your reset token.')
+    const cleanToken = resetToken.trim()
+    if (!cleanToken) {
+      setErrorMsg('Please enter the 6-digit verification code.')
+      return
+    }
+    if (cleanToken.length !== 6) {
+      setErrorMsg('Verification code must be 6 digits.')
       return
     }
     if (!newPassword) {
       setErrorMsg('Please enter a new password.')
+      return
+    }
+    if (newPassword.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -175,22 +199,46 @@ function Login() {
     setLoading(true)
 
     try {
-      // POST /api/v1/auth/password-reset
-      await authApi.resetPassword({
-        token: resetToken.trim(),
+      // POST /api/v1/auth/password-reset { token, new_password }
+      const res = await authApi.resetPassword({
+        token: cleanToken,
         new_password: newPassword
       })
 
-      setSuccessMsg('Your password has been successfully reset! You can now log in.')
+      const successText = res?.data?.message || res?.message || 'Password has been reset successfully. You can now sign in.'
+      setSuccessMsg(successText)
       setIdentifier(resetIdentifier)
-      setPassword(newPassword)
+      setPassword('')
+      setResetToken('')
+      setNewPassword('')
+      setConfirmPassword('')
       setMode('login')
     } catch (err) {
-      console.warn('Password reset execution error:', err)
-      if (err.response?.data?.detail) {
-        setErrorMsg(typeof err.response.data.detail === 'string' ? err.response.data.detail : 'Failed to reset password.')
+      console.error('Password reset execution error:', err)
+      if (err.response) {
+        if (err.response.status === 404) {
+          const detail = typeof err.response.data?.detail === 'string' && err.response.data.detail !== 'Not Found'
+            ? err.response.data.detail
+            : 'Invalid or expired verification code. Please request a new code.'
+          setErrorMsg(detail)
+        } else if (err.response.data?.detail) {
+          const detail = Array.isArray(err.response.data.detail)
+            ? err.response.data.detail.map((d) => d.msg || JSON.stringify(d)).join(', ')
+            : typeof err.response.data.detail === 'string'
+              ? err.response.data.detail
+              : JSON.stringify(err.response.data.detail)
+          setErrorMsg(detail)
+        } else if (err.response.data?.message) {
+          setErrorMsg(err.response.data.message)
+        } else if (err.response.status === 400 || err.response.status === 401) {
+          setErrorMsg('Invalid or expired verification code. Please request a new code.')
+        } else {
+          setErrorMsg(`Reset failed (HTTP ${err.response.status}). Please try again.`)
+        }
+      } else if (err.request) {
+        setErrorMsg('Network error: Unable to reach the server. Please check your connection and try again.')
       } else {
-        setErrorMsg(err.message || 'Failed to reset password.')
+        setErrorMsg(err.message || 'Failed to reset password. Please try again.')
       }
     } finally {
       setLoading(false)
@@ -287,7 +335,7 @@ function Login() {
 
         {mode === 'forgot_request' && (
           <>
-            <p className="subtitle">Reset your account password.</p>
+            <p className="subtitle">Enter your email or username to receive a 6-digit verification code.</p>
 
             {errorMsg && (
               <div className="login-status-banner error">
@@ -296,9 +344,16 @@ function Login() {
               </div>
             )}
 
+            {successMsg && (
+              <div className="login-status-banner success">
+                <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
+                <span>{successMsg}</span>
+              </div>
+            )}
+
             <form onSubmit={handleResetRequestSubmit}>
               <div className="login-form-group">
-                <label htmlFor="reset-id">Username or Email</label>
+                <label htmlFor="reset-id">Username or Email *</label>
                 <input
                   id="reset-id"
                   type="text"
@@ -312,7 +367,7 @@ function Login() {
 
               <button type="submit" disabled={loading}>
                 {loading && <Loader2 size={16} className="spin-icon" style={{ marginRight: '8px' }} />}
-                Request Password Reset
+                Send Verification Code
               </button>
 
               <button
@@ -320,6 +375,7 @@ function Login() {
                 onClick={() => {
                   setMode('login')
                   setErrorMsg('')
+                  setSuccessMsg('')
                 }}
                 className="login-back-btn"
               >
@@ -333,9 +389,9 @@ function Login() {
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               <KeyRound size={20} style={{ color: 'var(--primary)' }} />
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Enter Reset Token</h2>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Reset Password</h2>
             </div>
-            <p className="subtitle">Submit your reset token together with your new password.</p>
+            <p className="subtitle">Enter the 6-digit code sent to your email and your new password.</p>
 
             {errorMsg && (
               <div className="login-status-banner error">
@@ -353,13 +409,27 @@ function Login() {
 
             <form onSubmit={handleResetSubmit}>
               <div className="login-form-group">
-                <label htmlFor="reset-token">Reset Token *</label>
+                <div className="login-label-row">
+                  <label htmlFor="reset-token">6-Digit Verification Code *</label>
+                  <button
+                    type="button"
+                    onClick={handleResetRequestSubmit}
+                    disabled={loading}
+                    className="forgot-password-link"
+                    style={{ fontSize: '12px' }}
+                  >
+                    Resend Code
+                  </button>
+                </div>
                 <input
                   id="reset-token"
                   type="text"
-                  placeholder="Paste your reset token"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  placeholder="e.g. 123456"
                   value={resetToken}
-                  onChange={(e) => setResetToken(e.target.value)}
+                  onChange={(e) => setResetToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   disabled={loading}
                   required
                 />
@@ -393,7 +463,7 @@ function Login() {
 
               <button type="submit" disabled={loading}>
                 {loading && <Loader2 size={16} className="spin-icon" style={{ marginRight: '8px' }} />}
-                Reset Password & Log In
+                Reset Password
               </button>
 
               <button
