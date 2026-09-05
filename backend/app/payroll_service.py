@@ -1,333 +1,346 @@
 """
-Focused tests for the payroll service layer.
+Payroll service layer: owns all database access for the Payrun/Payslip
+workflow and calls the (unmodified) pure payroll_engine to do math.
 
-Uses a real SQLite in-memory database — sqlalchemy.dialects.postgresql.UUID
-degrades cleanly to CHAR on non-Postgres dialects, so the existing models
-work unmodified here without needing a live Supabase connection.
-
-HR contract lookups are stubbed via a fake ActiveContractProvider —
-no HTTP calls are made in these tests.
+Business rules implemented here:
+1. Only DRAFT payruns can be computed.
+2. period_start <= period_end enforced on creation.
+3. Compute uses the active contract per employee for the pay period,
+   via the injected ActiveContractProvider (payroll_hr_client).
+4. Missing active contract -> warning, no payslip created for that employee.
+5/6. Salary structure and rules must be active.
+7/9. Duplicate payslips prevented by the existing unique constraint;
+     caught per-employee via a SAVEPOINT so one bad employee doesn't
+     sink the whole batch.
+8. Re-computing a COMPUTED payrun is rejected outright (see
+   InvalidPayrunStateError below) rather than silently re-running —
+   this is the "safe behavior" chosen: computing is a one-shot
+   transition per payrun; a real "redo" would need an explicit,
+   separate reset-to-DRAFT operation (not implemented here).
+12. Each employee's payslip+lines are written inside a nested
+    transaction (SAVEPOINT) so a single employee's failure rolls back
+    only that employee, while the batch as a whole still commits once.
 """
+
+from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID
 
-import pytest
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
-from app.database import Base
-from app.payroll_hr_client import ActiveContractDTO
+from app.payroll_hr_client import ActiveContractProvider, HRClientError
+from app.payroll_engine import CalculationInput, PayrollEngineError, calculate_payslip
 from app.payroll_models import (
-    ComputationType,
+    Payrun,
     PayrunStatus,
-    SalaryCategory,
+    Payslip,
+    PayslipLine,
     SalaryRule,
     SalaryStructure,
 )
-from app.payroll_service import (
-    EmptyEmployeeListError,
-    InvalidPayrunStateError,
-    InvalidPeriodError,
-    compute_payrun,
-    create_payrun,
-    get_payslip,
-    get_payslip_lines,
-    validate_payrun,
-    mark_payrun_paid,
+
+
+# ---------------------------------------------------------------------------
+# Service-level typed exceptions (mapped to HTTP responses in payroll_routes)
+# ---------------------------------------------------------------------------
+
+class PayrollServiceError(Exception):
+    pass
+
+
+class PayrunNotFoundError(PayrollServiceError):
+    def __init__(self, payrun_id: UUID):
+        self.payrun_id = payrun_id
+        super().__init__(f"Payrun {payrun_id} not found")
+
+
+class PayslipNotFoundError(PayrollServiceError):
+    def __init__(self, payslip_id: UUID):
+        self.payslip_id = payslip_id
+        super().__init__(f"Payslip {payslip_id} not found")
+
+
+class SalaryStructureNotFoundError(PayrollServiceError):
+    def __init__(self, structure_id: UUID):
+        self.structure_id = structure_id
+        super().__init__(f"Salary structure {structure_id} not found")
+
+
+class SalaryStructureInactiveError(PayrollServiceError):
+    def __init__(self, structure_id: UUID):
+        self.structure_id = structure_id
+        super().__init__(f"Salary structure {structure_id} is not active")
+
+
+class InvalidPeriodError(PayrollServiceError):
+    def __init__(self, period_start: date, period_end: date):
+        super().__init__(
+            f"period_end ({period_end}) must not be before period_start ({period_start})"
+        )
+
+
+class InvalidPayrunStateError(PayrollServiceError):
+    def __init__(self, payrun_id: UUID, current_status: PayrunStatus, action: str, detail: str = ""):
+        self.payrun_id = payrun_id
+        self.current_status = current_status
+        self.action = action
+        message = f"Cannot {action} payrun {payrun_id}: current status is {current_status.value}."
+        if detail:
+            message += f" {detail}"
+        super().__init__(message)
+
+
+class EmptyEmployeeListError(PayrollServiceError):
+    def __init__(self):
+        super().__init__(
+            "employee_ids is required to compute a payrun and must not be empty"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Worked-days placeholder — isolated so attendance integration can replace it
+# ---------------------------------------------------------------------------
+
+def _default_worked_days(period_start: date, period_end: date) -> Decimal:
+    """
+    Placeholder: full calendar days in the period. Replace this function
+    (only this function) once real attendance data is available — nothing
+    else in the service needs to change.
+    """
+    days = (period_end - period_start).days + 1
+    return Decimal(days)
+
+
+# ---------------------------------------------------------------------------
+# Payrun: create
+# ---------------------------------------------------------------------------
+
+def create_payrun(db: Session, payload) -> Payrun:
+    if payload.period_end < payload.period_start:
+        raise InvalidPeriodError(payload.period_start, payload.period_end)
+
+    structure = db.get(SalaryStructure, payload.salary_structure_id)
+    if structure is None:
+        raise SalaryStructureNotFoundError(payload.salary_structure_id)
+    if not structure.is_active:
+        raise SalaryStructureInactiveError(payload.salary_structure_id)
+
+    # NOTE: payload.employee_ids is accepted/validated per the contract but
+    # not persisted — Payrun has no column for it. See flagged conflict.
+    payrun = Payrun(
+    name=payload.name,
+    salary_structure_id=payload.salary_structure_id,
+    period_start=payload.period_start,
+    period_end=payload.period_end,
+    employee_ids=[str(employee_id) for employee_id in payload.employee_ids],
+    status=PayrunStatus.DRAFT,
 )
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-@pytest.fixture
-def db():
-    engine = create_engine("sqlite:///:memory:")
-
-    # Standard SQLAlchemy recipe so SAVEPOINT (begin_nested) works correctly
-    # against SQLite's pysqlite driver.
-    @event.listens_for(engine, "connect")
-    def do_connect(dbapi_connection, connection_record):
-        dbapi_connection.isolation_level = None
-
-    @event.listens_for(engine, "begin")
-    def do_begin(conn):
-        conn.exec_driver_sql("BEGIN")
-
-    Base.metadata.create_all(engine)
-    SessionLocal = sessionmaker(bind=engine)
-    session = SessionLocal()
-    yield session
-    session.close()
-
-
-class FakeHRClient:
-    """Stub ActiveContractProvider — no HTTP calls."""
-
-    def __init__(self, contracts: dict):
-        self._contracts = contracts
-
-    def get_active_contract(self, employee_id, period_start, period_end):
-        return self._contracts.get(employee_id)
-
-
-def _make_structure_with_rules(db) -> SalaryStructure:
-    structure = SalaryStructure(name="Standard", is_active=True)
-    db.add(structure)
-    db.flush()
-
-    earning_cat = SalaryCategory(name="Earning", code="EARNING")
-    pf_cat = SalaryCategory(name="Provident Fund", code="PF")
-    db.add_all([earning_cat, pf_cat])
-    db.flush()
-
-    basic = SalaryRule(
-        structure_id=structure.id, category_id=earning_cat.id,
-        name="Basic Pay", code="BASIC", sequence=10,
-        computation_type=ComputationType.FIXED, fixed_amount=None,
-    )
-    # BASIC is seeded from contract.wage as a base_input, not a FIXED rule
-    # with a hardcoded amount — so give it a FORMULA that just echoes itself
-    # would be redundant; instead we don't add a BASIC rule row at all and
-    # rely on base_inputs={"BASIC": wage}. Remove the placeholder above.
-    db.rollback()  # discard the unused `basic` object above; re-flush clean state
-    db.add(structure)
-    db.add_all([earning_cat, pf_cat])
-    db.flush()
-
-    hra = SalaryRule(
-        structure_id=structure.id, category_id=earning_cat.id,
-        name="HRA", code="HRA", sequence=10,
-        computation_type=ComputationType.PERCENTAGE,
-        percentage=Decimal("20.00"), formula="BASIC", is_active=True,
-    )
-    pf = SalaryRule(
-        structure_id=structure.id, category_id=pf_cat.id,
-        name="Provident Fund", code="PF", sequence=20,
-        computation_type=ComputationType.PERCENTAGE,
-        percentage=Decimal("12.00"), formula="BASIC", is_active=True,
-    )
-    db.add_all([hra, pf])
+    db.add(payrun)
     db.commit()
-    db.refresh(structure)
-    return structure
+    db.refresh(payrun)
+    return payrun
 
 
-def _create_request(structure_id, employee_ids=None):
-    from app.payroll_schemas import CreatePayrunRequest
-    return CreatePayrunRequest(
-        name="September 2026 Payroll",
-        salary_structure_id=structure_id,
-        period_start=date(2026, 9, 1),
-        period_end=date(2026, 9, 30),
-        employee_ids=employee_ids or [],
+def list_payruns(db: Session) -> list[Payrun]:
+    return list(db.scalars(select(Payrun).order_by(Payrun.created_at.desc())).all())
+
+
+def get_payrun(db: Session, payrun_id: UUID) -> Payrun:
+    payrun = db.get(Payrun, payrun_id)
+    if payrun is None:
+        raise PayrunNotFoundError(payrun_id)
+    return payrun
+
+
+# ---------------------------------------------------------------------------
+# Payrun: compute
+# ---------------------------------------------------------------------------
+
+def compute_payrun(
+    db: Session,
+    payrun_id: UUID,
+    employee_ids: list[UUID],
+    hr_client: ActiveContractProvider,
+    worked_days_overrides: dict[UUID, Decimal] | None = None,
+) -> tuple[Payrun, int, list[str]]:
+    payrun = db.get(Payrun, payrun_id)
+    if payrun is None:
+        raise PayrunNotFoundError(payrun_id)
+
+    if payrun.status != PayrunStatus.DRAFT:
+        raise InvalidPayrunStateError(
+            payrun_id,
+            payrun.status,
+            "compute",
+            "Only DRAFT payruns can be computed; this payrun has already "
+            "been processed once and will not be recomputed automatically.",
+        )
+
+    if not employee_ids:
+        raise EmptyEmployeeListError()
+
+    structure = db.get(SalaryStructure, payrun.salary_structure_id)
+    if structure is None:
+        raise SalaryStructureNotFoundError(payrun.salary_structure_id)
+    if not structure.is_active:
+        raise SalaryStructureInactiveError(payrun.salary_structure_id)
+
+    rules = list(
+        db.scalars(
+            select(SalaryRule)
+            .where(SalaryRule.structure_id == structure.id, SalaryRule.is_active.is_(True))
+            .order_by(SalaryRule.sequence.asc())
+        ).all()
+    )
+    rules_by_code = {r.code: r for r in rules}
+
+    worked_days_overrides = worked_days_overrides or {}
+    warnings: list[str] = []
+    payslip_count = 0
+
+    for employee_id in employee_ids:
+        savepoint = db.begin_nested()
+        try:
+            contract = hr_client.get_active_contract(
+                employee_id, payrun.period_start, payrun.period_end
+            )
+            if contract is None:
+                warnings.append(
+                    f"No active contract found for employee {employee_id} "
+                    f"in period {payrun.period_start}..{payrun.period_end}; skipped."
+                )
+                savepoint.rollback()
+                continue
+
+            worked_days = worked_days_overrides.get(employee_id) or _default_worked_days(
+                payrun.period_start, payrun.period_end
+            )
+
+            calc_input = CalculationInput(
+                structure_id=structure.id,
+                employee_id=employee_id,
+                contract_id=contract.id,
+                period_start=payrun.period_start,
+                period_end=payrun.period_end,
+                worked_days=worked_days,
+                base_inputs={"BASIC": Decimal(contract.wage)},
+            )
+            result = calculate_payslip(rules, calc_input)
+
+            payslip = Payslip(
+                payrun_id=payrun.id,
+                employee_id=employee_id,
+                contract_id=contract.id,
+                salary_structure_id=structure.id,
+                worked_days=worked_days,
+                gross_salary=result.gross_salary,
+                total_deductions=result.total_deductions,
+                net_salary=result.net_salary,
+                status=PayrunStatus.COMPUTED,
+            )
+            db.add(payslip)
+            db.flush()  # assign payslip.id; still inside the savepoint
+
+            for line in result.lines:
+                rule = rules_by_code.get(line.code)
+                db.add(
+                    PayslipLine(
+                        payslip_id=payslip.id,
+                        rule_id=rule.id if rule else None,
+                        code=line.code,
+                        name=line.name,
+                        category=line.category,
+                        sequence=line.sequence,
+                        amount=line.amount,
+                    )
+                )
+            db.flush()
+
+        except HRClientError as exc:
+            savepoint.rollback()
+            warnings.append(f"HR lookup failed for employee {employee_id}: {exc}")
+        except PayrollEngineError as exc:
+            savepoint.rollback()
+            warnings.append(f"Calculation failed for employee {employee_id}: {exc}")
+        except IntegrityError:
+            savepoint.rollback()
+            warnings.append(
+                f"Payslip already exists for employee {employee_id} in this payrun; skipped."
+            )
+        else:
+            savepoint.commit()
+            payslip_count += 1
+
+    if payslip_count > 0:
+        payrun.status = PayrunStatus.COMPUTED
+    else:
+        warnings.append("No payslips could be computed; payrun remains DRAFT.")
+
+    db.commit()
+    db.refresh(payrun)
+    return payrun, payslip_count, warnings
+
+
+# ---------------------------------------------------------------------------
+# Payrun: validate / mark-paid
+# ---------------------------------------------------------------------------
+
+def validate_payrun(db: Session, payrun_id: UUID) -> Payrun:
+    payrun = db.get(Payrun, payrun_id)
+    if payrun is None:
+        raise PayrunNotFoundError(payrun_id)
+    if payrun.status != PayrunStatus.COMPUTED:
+        raise InvalidPayrunStateError(
+            payrun_id, payrun.status, "validate",
+            "Only COMPUTED payruns can be validated.",
+        )
+    payrun.status = PayrunStatus.VALIDATED
+    db.commit()
+    db.refresh(payrun)
+    return payrun
+
+
+def mark_payrun_paid(db: Session, payrun_id: UUID) -> Payrun:
+    payrun = db.get(Payrun, payrun_id)
+    if payrun is None:
+        raise PayrunNotFoundError(payrun_id)
+    if payrun.status != PayrunStatus.VALIDATED:
+        raise InvalidPayrunStateError(
+            payrun_id, payrun.status, "mark-paid",
+            "Only VALIDATED payruns can be marked PAID.",
+        )
+    payrun.status = PayrunStatus.PAID
+    db.commit()
+    db.refresh(payrun)
+    return payrun
+
+
+# ---------------------------------------------------------------------------
+# Payslip queries
+# ---------------------------------------------------------------------------
+
+def get_payslip(db: Session, payslip_id: UUID) -> Payslip:
+    payslip = db.get(Payslip, payslip_id)
+    if payslip is None:
+        raise PayslipNotFoundError(payslip_id)
+    return payslip
+
+
+def list_payslips_for_payrun(db: Session, payrun_id: UUID) -> list[Payslip]:
+    return list(
+        db.scalars(select(Payslip).where(Payslip.payrun_id == payrun_id)).all()
     )
 
 
-# ---------------------------------------------------------------------------
-# 1. Create payrun
-# ---------------------------------------------------------------------------
-
-def test_create_payrun_success(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-    assert payrun.status == PayrunStatus.DRAFT
-    assert payrun.salary_structure_id == structure.id
-
-
-# ---------------------------------------------------------------------------
-# 2. Invalid period
-# ---------------------------------------------------------------------------
-
-def test_create_payrun_invalid_period_raises(db):
-    structure = _make_structure_with_rules(db)
-    req = _create_request(structure.id)
-    req.period_end = date(2026, 8, 1)  # before period_start
-    with pytest.raises(InvalidPeriodError):
-        create_payrun(db, req)
-
-
-# ---------------------------------------------------------------------------
-# 3. Compute payrun (also covers rules loading in sequence + payslip lines)
-# ---------------------------------------------------------------------------
-
-def test_compute_payrun_success(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-
-    employee_id = uuid4()
-    contract = ActiveContractDTO(
-        id=uuid4(), employee_id=employee_id, salary_structure_id=structure.id,
-        wage=Decimal("50000.00"), start_date=date(2026, 9, 1), end_date=None, status="ACTIVE",
+def get_payslip_lines(db: Session, payslip_id: UUID) -> list[PayslipLine]:
+    return list(
+        db.scalars(
+            select(PayslipLine)
+            .where(PayslipLine.payslip_id == payslip_id)
+            .order_by(PayslipLine.sequence.asc())
+        ).all()
     )
-    hr_client = FakeHRClient({employee_id: contract})
-
-    updated_payrun, count, warnings = compute_payrun(
-        db, payrun.id, [employee_id], hr_client
-    )
-
-    assert count == 1
-    assert warnings == []
-    assert updated_payrun.status == PayrunStatus.COMPUTED
-
-    payslips = list_payslips_for_payrun_helper(db, payrun.id)
-    assert len(payslips) == 1
-    payslip = payslips[0]
-    # gross = BASIC(50000) + HRA(20% of 50000=10000) = 60000
-    # deductions = PF(12% of 50000=6000)
-    assert payslip.gross_salary == Decimal("60000.00")
-    assert payslip.total_deductions == Decimal("6000.00")
-    assert payslip.net_salary == Decimal("54000.00")
-
-
-def list_payslips_for_payrun_helper(db, payrun_id):
-    from app.payroll_service import list_payslips_for_payrun
-    return list_payslips_for_payrun(db, payrun_id)
-
-
-# ---------------------------------------------------------------------------
-# 4. Invalid status transition (recompute a COMPUTED payrun)
-# ---------------------------------------------------------------------------
-
-def test_recompute_computed_payrun_raises(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-    employee_id = uuid4()
-    contract = ActiveContractDTO(
-        id=uuid4(), employee_id=employee_id, salary_structure_id=structure.id,
-        wage=Decimal("50000.00"), start_date=date(2026, 9, 1), end_date=None, status="ACTIVE",
-    )
-    hr_client = FakeHRClient({employee_id: contract})
-    compute_payrun(db, payrun.id, [employee_id], hr_client)
-
-    with pytest.raises(InvalidPayrunStateError):
-        compute_payrun(db, payrun.id, [employee_id], hr_client)
-
-
-# ---------------------------------------------------------------------------
-# 5. Missing active contract -> warning, no payslip
-# ---------------------------------------------------------------------------
-
-def test_missing_active_contract_produces_warning(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-
-    employee_with_contract = uuid4()
-    employee_without_contract = uuid4()
-    contract = ActiveContractDTO(
-        id=uuid4(), employee_id=employee_with_contract, salary_structure_id=structure.id,
-        wage=Decimal("40000.00"), start_date=date(2026, 9, 1), end_date=None, status="ACTIVE",
-    )
-    hr_client = FakeHRClient({employee_with_contract: contract})
-
-    updated_payrun, count, warnings = compute_payrun(
-        db, payrun.id, [employee_with_contract, employee_without_contract], hr_client
-    )
-
-    assert count == 1
-    assert len(warnings) == 1
-    assert str(employee_without_contract) in warnings[0]
-    assert updated_payrun.status == PayrunStatus.COMPUTED
-
-
-# ---------------------------------------------------------------------------
-# 6. Empty employee list
-# ---------------------------------------------------------------------------
-
-def test_compute_with_empty_employee_list_raises(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-    with pytest.raises(EmptyEmployeeListError):
-        compute_payrun(db, payrun.id, [], FakeHRClient({}))
-
-
-# ---------------------------------------------------------------------------
-# 7. Payslip line creation
-# ---------------------------------------------------------------------------
-
-def test_payslip_line_creation(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-    employee_id = uuid4()
-    contract = ActiveContractDTO(
-        id=uuid4(), employee_id=employee_id, salary_structure_id=structure.id,
-        wage=Decimal("50000.00"), start_date=date(2026, 9, 1), end_date=None, status="ACTIVE",
-    )
-    hr_client = FakeHRClient({employee_id: contract})
-    compute_payrun(db, payrun.id, [employee_id], hr_client)
-
-    payslips = list_payslips_for_payrun_helper(db, payrun.id)
-    lines = get_payslip_lines(db, payslips[0].id)
-    codes = {line.code for line in lines}
-    assert codes == {"HRA", "PF"}
-
-
-# ---------------------------------------------------------------------------
-# 8. Duplicate payslip prevention (same employee twice in one compute call)
-# ---------------------------------------------------------------------------
-
-def test_duplicate_payslip_prevented(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-    employee_id = uuid4()
-    contract = ActiveContractDTO(
-        id=uuid4(), employee_id=employee_id, salary_structure_id=structure.id,
-        wage=Decimal("50000.00"), start_date=date(2026, 9, 1), end_date=None, status="ACTIVE",
-    )
-    hr_client = FakeHRClient({employee_id: contract})
-
-    updated_payrun, count, warnings = compute_payrun(
-        db, payrun.id, [employee_id, employee_id], hr_client
-    )
-
-    assert count == 1
-    assert any("already exists" in w for w in warnings)
-    payslips = list_payslips_for_payrun_helper(db, payrun.id)
-    assert len(payslips) == 1
-
-
-# ---------------------------------------------------------------------------
-# 9. Validate transition
-# ---------------------------------------------------------------------------
-
-def test_validate_transition(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-
-    with pytest.raises(InvalidPayrunStateError):
-        validate_payrun(db, payrun.id)  # still DRAFT
-
-    employee_id = uuid4()
-    contract = ActiveContractDTO(
-        id=uuid4(), employee_id=employee_id, salary_structure_id=structure.id,
-        wage=Decimal("50000.00"), start_date=date(2026, 9, 1), end_date=None, status="ACTIVE",
-    )
-    compute_payrun(db, payrun.id, [employee_id], FakeHRClient({employee_id: contract}))
-
-    validated = validate_payrun(db, payrun.id)
-    assert validated.status == PayrunStatus.VALIDATED
-
-
-# ---------------------------------------------------------------------------
-# 10. Mark-paid transition
-# ---------------------------------------------------------------------------
-
-def test_mark_paid_transition(db):
-    structure = _make_structure_with_rules(db)
-    payrun = create_payrun(db, _create_request(structure.id))
-    employee_id = uuid4()
-    contract = ActiveContractDTO(
-        id=uuid4(), employee_id=employee_id, salary_structure_id=structure.id,
-        wage=Decimal("50000.00"), start_date=date(2026, 9, 1), end_date=None, status="ACTIVE",
-    )
-    compute_payrun(db, payrun.id, [employee_id], FakeHRClient({employee_id: contract}))
-
-    with pytest.raises(InvalidPayrunStateError):
-        mark_payrun_paid(db, payrun.id)  # still COMPUTED, not VALIDATED
-
-    validate_payrun(db, payrun.id)
-    paid = mark_payrun_paid(db, payrun.id)
-    assert paid.status == PayrunStatus.PAID
