@@ -14,6 +14,64 @@ export const apiClient = axios.create({
   timeout: 10000,
 })
 
+// Request interceptor to automatically attach Authorization: Bearer <token>
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = sessionStorage.getItem('peoplepay_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => Promise.reject(error)
+)
+
+// Response interceptor to handle 401 and 403
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      if (error.response.status === 401) {
+        // Clear auth/session and redirect to /login
+        sessionStorage.removeItem('peoplepay_token')
+        sessionStorage.removeItem('peoplepay_user')
+        sessionStorage.removeItem('peoplepay_role')
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
+// Auth API services
+export const authApi = {
+  login: async (credentials) => {
+    // Request: { identifier, password }
+    const response = await apiClient.post('/auth/login', credentials)
+    return response.data
+  },
+
+  getMe: async () => {
+    // GET /api/v1/auth/me with Authorization header
+    const response = await apiClient.get('/auth/me')
+    return response.data
+  },
+
+  requestPasswordReset: async (data) => {
+    // POST /api/v1/auth/password-reset/request { identifier }
+    const response = await apiClient.post('/auth/password-reset/request', data)
+    return response.data
+  },
+
+  resetPassword: async (data) => {
+    // POST /api/v1/auth/password-reset { token, new_password }
+    const response = await apiClient.post('/auth/password-reset', data)
+    return response.data
+  },
+}
+
 // Employees API services
 export const employeesApi = {
   getAll: async () => {

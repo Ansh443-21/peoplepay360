@@ -1,5 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Search, Plus, MoreHorizontal, AlertCircle, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react'
+import { Search, Plus, MoreHorizontal, AlertCircle, RefreshCw, Loader2, CheckCircle2, Lock } from 'lucide-react'
+import { useAuth, ROLES } from '../../context/AuthContext.jsx'
 import { contractsApi, employeesApi } from '../../api/client.js'
 import './Contracts.css'
 
@@ -45,6 +46,9 @@ const normalizeContract = (item, employeeMap = {}) => {
 }
 
 function Contracts() {
+  const { isRole } = useAuth()
+  const canManageContracts = isRole(ROLES.HR, ROLES.ADMIN)
+
   const [contractsList, setContractsList] = useState(initialContractsData)
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(false)
@@ -235,8 +239,14 @@ function Contracts() {
             <RefreshCw size={16} className={loading ? 'spin-icon' : ''} />
             Refresh
           </button>
-          <button className="primary-button" onClick={handleOpenModal}>
-            <Plus size={18} />
+          <button
+            className="primary-button"
+            onClick={canManageContracts ? handleOpenModal : undefined}
+            disabled={!canManageContracts}
+            title={!canManageContracts ? "You don't have permission" : "Create new contract"}
+            style={!canManageContracts ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+          >
+            {!canManageContracts ? <Lock size={16} /> : <Plus size={18} />}
             New Contract
           </button>
         </div>

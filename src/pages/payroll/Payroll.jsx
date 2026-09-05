@@ -23,7 +23,8 @@ import {
   TrendingUp,
   PieChart,
   Activity,
-  Layers
+  Layers,
+  Lock
 } from 'lucide-react'
 import { useAuth, ROLES } from '../../context/AuthContext.jsx'
 import './Payroll.css'
@@ -209,11 +210,12 @@ const formatCurrency = (amount) => {
 }
 
 function Payroll() {
-  const { isRole } = useAuth()
+  const { role, employeeId, isRole } = useAuth()
+  const isEmployeeRole = role === ROLES.EMPLOYEE
 
   // RBAC permissions for Payroll module
-  const canViewStructures = isRole(ROLES.HR_PAYROLL_MANAGER, ROLES.ADMIN)
-  const canManagePayruns = isRole(ROLES.HR_PAYROLL_MANAGER, ROLES.ADMIN)
+  const canViewStructures = isRole(ROLES.PAYROLL, ROLES.ADMIN)
+  const canManagePayruns = isRole(ROLES.PAYROLL, ROLES.ADMIN)
   const isEmployeeOnly = isRole(ROLES.EMPLOYEE)
 
   // Default active tab based on role
@@ -309,6 +311,11 @@ function Payroll() {
 
   const filteredPayslips = useMemo(() => {
     return payslipsList.filter(ps => {
+      // If EMPLOYEE role, restrict to own payslips
+      if (isEmployeeRole && employeeId && String(ps.employee_id) !== String(employeeId)) {
+        return false
+      }
+
       const matchesSearch =
         ps.employeeName.toLowerCase().includes(payslipSearch.toLowerCase()) ||
         ps.payslip_id.toLowerCase().includes(payslipSearch.toLowerCase()) ||
@@ -318,7 +325,7 @@ function Payroll() {
       const matchesStatus = payslipStatusFilter === 'ALL' || ps.status === payslipStatusFilter
       return matchesSearch && matchesStatus
     })
-  }, [payslipsList, payslipSearch, payslipStatusFilter])
+  }, [payslipsList, payslipSearch, payslipStatusFilter, isEmployeeRole, employeeId])
 
   const activePayrun = payruns.find(p => p.payrun_id === activePayrunId)
   const activeStructure = structures.find(s => s.salary_structure_id === activeStructureId)
@@ -1096,33 +1103,52 @@ function Payroll() {
               : 'Process payroll payruns, review generated payslips, and configure salary compensation structures'}
           </p>
         </div>
-        {canManagePayruns && (
-          <button className="primary-button" onClick={handleOpenWizard}>
-            <Plus size={18} />
-            Create Payrun
-          </button>
-        )}
+        <button
+          className="primary-button"
+          onClick={canManagePayruns ? handleOpenWizard : undefined}
+          disabled={!canManagePayruns}
+          title={!canManagePayruns ? "You don't have permission" : "Create Payrun"}
+          style={!canManagePayruns ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+        >
+          {!canManagePayruns ? <Lock size={16} /> : <Plus size={18} />}
+          Create Payrun
+        </button>
       </div>
 
       <div className="payroll-tabs">
-        {!isEmployeeOnly && (
-          <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
-            Dashboard
-          </button>
-        )}
-        {!isEmployeeOnly && (
-          <button className={activeTab === 'payruns' ? 'active' : ''} onClick={() => setActiveTab('payruns')}>
-            Payruns
-          </button>
-        )}
+        <button
+          className={`${activeTab === 'dashboard' ? 'active' : ''} ${isEmployeeOnly ? 'locked' : ''}`}
+          onClick={() => isEmployeeOnly ? null : setActiveTab('dashboard')}
+          title={isEmployeeOnly ? "You don't have permission" : 'Dashboard'}
+          style={isEmployeeOnly ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+        >
+          {isEmployeeOnly && <Lock size={12} style={{ marginRight: '4px' }} />}
+          Dashboard
+        </button>
+
+        <button
+          className={`${activeTab === 'payruns' ? 'active' : ''} ${isEmployeeOnly ? 'locked' : ''}`}
+          onClick={() => isEmployeeOnly ? null : setActiveTab('payruns')}
+          title={isEmployeeOnly ? "You don't have permission" : 'Payruns'}
+          style={isEmployeeOnly ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+        >
+          {isEmployeeOnly && <Lock size={12} style={{ marginRight: '4px' }} />}
+          Payruns
+        </button>
+
         <button className={activeTab === 'payslips' ? 'active' : ''} onClick={() => setActiveTab('payslips')}>
           Payslips
         </button>
-        {canViewStructures && (
-          <button className={activeTab === 'structures' ? 'active' : ''} onClick={() => setActiveTab('structures')}>
-            Salary Structures
-          </button>
-        )}
+
+        <button
+          className={`${activeTab === 'structures' ? 'active' : ''} ${!canViewStructures ? 'locked' : ''}`}
+          onClick={() => canViewStructures ? setActiveTab('structures') : null}
+          title={!canViewStructures ? "You don't have permission" : 'Salary Structures'}
+          style={!canViewStructures ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+        >
+          {!canViewStructures && <Lock size={12} style={{ marginRight: '4px' }} />}
+          Salary Structures
+        </button>
       </div>
 
       {/* Tab 0: Comprehensive Payroll Dashboard (Stage 5) */}

@@ -1,5 +1,6 @@
-﻿import { useMemo, useState, useEffect } from 'react'
-import { Search, Plus, MoreHorizontal, AlertCircle, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { Search, Plus, MoreHorizontal, AlertCircle, RefreshCw, Loader2, CheckCircle2, Lock } from 'lucide-react'
+import { useAuth, ROLES } from '../../context/AuthContext.jsx'
 import { schedulesApi } from '../../api/client.js'
 import './Schedules.css'
 
@@ -44,6 +45,9 @@ const normalizeSchedule = (item) => {
 }
 
 function Schedules() {
+  const { isRole } = useAuth()
+  const canManageSchedules = isRole(ROLES.HR, ROLES.ADMIN)
+
   const [schedulesList, setSchedulesList] = useState(initialSchedulesData)
   const [loading, setLoading] = useState(false)
   const [apiNotice, setApiNotice] = useState('')
@@ -206,8 +210,14 @@ function Schedules() {
             <RefreshCw size={16} className={loading ? 'spin-icon' : ''} />
             Refresh
           </button>
-          <button className="primary-button" onClick={handleOpenModal}>
-            <Plus size={18} />
+          <button
+            className="primary-button"
+            onClick={canManageSchedules ? handleOpenModal : undefined}
+            disabled={!canManageSchedules}
+            title={!canManageSchedules ? "You don't have permission" : "Add schedule"}
+            style={!canManageSchedules ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+          >
+            {!canManageSchedules ? <Lock size={16} /> : <Plus size={18} />}
             Add Schedule
           </button>
         </div>

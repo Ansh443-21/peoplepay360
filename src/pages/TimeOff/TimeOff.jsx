@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Search, Plus, Check, X } from 'lucide-react'
+import { useAuth, ROLES } from '../../context/AuthContext.jsx'
 import './TimeOff.css'
 
 const mockTypes = [
@@ -22,6 +23,9 @@ const initialRequests = [
 ]
 
 function TimeOff() {
+  const { role, user, employeeId } = useAuth()
+  const isEmployeeRole = role === ROLES.EMPLOYEE
+
   const [activeTab, setActiveTab] = useState('requests')
   
   // State for requests tab
@@ -34,7 +38,7 @@ function TimeOff() {
   const [errorMsg, setErrorMsg] = useState('')
   
   const initialForm = {
-    employeeName: '',
+    employeeName: isEmployeeRole ? (user?.full_name || user?.name || user?.username || 'My Profile') : '',
     time_off_type_id: 'T1',
     startDate: '',
     endDate: '',
@@ -51,7 +55,11 @@ function TimeOff() {
     e.preventDefault()
     setErrorMsg('')
     
-    if (!formData.employeeName || !formData.startDate || !formData.endDate) {
+    const effectiveName = isEmployeeRole
+      ? (user?.full_name || user?.name || user?.username || 'My Profile')
+      : formData.employeeName
+
+    if (!effectiveName || !formData.startDate || !formData.endDate) {
       setErrorMsg('Please fill in Employee, Start Date, and End Date.')
       return
     }
@@ -60,8 +68,8 @@ function TimeOff() {
 
     const newRequest = {
       id: Date.now(),
-      employee_id: `E-${Date.now()}`,
-      employeeName: formData.employeeName,
+      employee_id: isEmployeeRole && employeeId ? employeeId : `E-${Date.now()}`,
+      employeeName: effectiveName,
       time_off_type_id: formData.time_off_type_id,
       typeName: typeName,
       startDate: formData.startDate,
@@ -82,12 +90,17 @@ function TimeOff() {
 
   const filteredRequests = useMemo(() => {
     return requests.filter((req) => {
+      // If EMPLOYEE role, only show own requests
+      if (isEmployeeRole && employeeId && String(req.employee_id) !== String(employeeId) && !req.employeeName.toLowerCase().includes(user?.username?.toLowerCase() || '')) {
+        return false
+      }
+
       const matchesSearch = req.employeeName.toLowerCase().includes(search.toLowerCase()) ||
                             req.description.toLowerCase().includes(search.toLowerCase())
       const matchesStatus = statusFilter === 'All Statuses' || req.status === statusFilter
       return matchesSearch && matchesStatus
     })
-  }, [requests, search, statusFilter])
+  }, [requests, search, statusFilter, isEmployeeRole, employeeId, user])
 
   return (
     <div className="timeoff-page">
@@ -276,8 +289,9 @@ function TimeOff() {
                   type="text" 
                   name="employeeName" 
                   placeholder="e.g. Rishika Patel"
-                  value={formData.employeeName} 
+                  value={isEmployeeRole ? (user?.full_name || user?.name || user?.username || 'My Profile') : formData.employeeName} 
                   onChange={handleInputChange} 
+                  disabled={isEmployeeRole}
                 />
               </div>
 

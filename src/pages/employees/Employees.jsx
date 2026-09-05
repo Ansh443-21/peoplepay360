@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Search, Plus, MoreHorizontal, Mail, LayoutGrid, List, AlertCircle, RefreshCw, Loader2, Edit2 } from 'lucide-react'
+import { Search, Plus, MoreHorizontal, Mail, LayoutGrid, List, AlertCircle, RefreshCw, Loader2, Edit2, Lock } from 'lucide-react'
 import { useAuth, ROLES } from '../../context/AuthContext.jsx'
 import { employeesApi } from '../../api/client.js'
 import './Employees.css'
@@ -110,8 +110,17 @@ function Employees() {
     fetchEmployees()
   }, [])
 
+  const { role, employeeId, isRole } = useAuth()
+  const isEmployeeRole = role === ROLES.EMPLOYEE
+  const canAddEmployee = isRole(ROLES.HR, ROLES.ADMIN)
+
   const filteredEmployees = useMemo(() => {
     return employeeList.filter((employee) => {
+      // If EMPLOYEE role, restrict to own profile
+      if (isEmployeeRole && employeeId && String(employee.id) !== String(employeeId)) {
+        return false
+      }
+
       const matchesSearch =
         employee.name.toLowerCase().includes(search.toLowerCase()) ||
         employee.role.toLowerCase().includes(search.toLowerCase()) ||
@@ -123,7 +132,7 @@ function Employees() {
 
       return matchesSearch && matchesDepartment
     })
-  }, [employeeList, search, department])
+  }, [employeeList, search, department, isEmployeeRole, employeeId])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -248,9 +257,6 @@ function Employees() {
     }
   }
 
-  const { isRole } = useAuth()
-  const canAddEmployee = isRole(ROLES.HR_MANAGER, ROLES.ADMIN)
-
   return (
     <div className="employees-page">
       <div className="employees-header">
@@ -269,12 +275,16 @@ function Employees() {
             <RefreshCw size={16} className={loading ? 'spin-icon' : ''} />
             Refresh
           </button>
-          {canAddEmployee && (
-            <button className="primary-button" onClick={openAddModal}>
-              <Plus size={18} />
-              Add Employee
-            </button>
-          )}
+          <button
+            className="primary-button"
+            onClick={canAddEmployee ? openAddModal : undefined}
+            disabled={!canAddEmployee}
+            title={!canAddEmployee ? "You don't have permission" : "Add Employee"}
+            style={!canAddEmployee ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+          >
+            {!canAddEmployee ? <Lock size={16} /> : <Plus size={18} />}
+            Add Employee
+          </button>
         </div>
       </div>
 

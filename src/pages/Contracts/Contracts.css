@@ -64,7 +64,7 @@
   color: inherit;
 }
 
-.-toolbar select {
+.contracts-toolbar select {
   border: 1px solid var(--input-border);
   border-radius: 8px;
   padding: 0 12px;
@@ -76,6 +76,21 @@
   background-position: right 12px center;
   background-size: 10px;
   padding-right: 32px;
+  height: 42px;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.contracts-toolbar select:hover {
+  border-color: var(--primary);
+}
+
+.contracts-toolbar select:focus {
+  border-color: var(--primary);
+  outline: none;
 }
 
 .contracts-table-card {

@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from 'react-router-dom'
+﻿import { useLocation } from 'react-router-dom'
 import { useAuth, ROLE_DEFAULT_ROUTES } from '../context/AuthContext.jsx'
 import { ShieldAlert } from 'lucide-react'
 
@@ -19,11 +19,13 @@ export default function ProtectedRoute({ children, path }) {
         textAlign: 'center'
       }}>
         <ShieldAlert size={48} style={{ color: 'var(--status-expired-text)', marginBottom: '16px' }} />
-        <h2 style={{ margin: '0 0 8px', color: 'var(--text-heading)' }}>Access Restricted</h2>
+        <h2 style={{ margin: '0 0 8px', color: 'var(--text-heading)' }}>You don't have permission</h2>
         <p style={{ margin: '0 0 20px', color: 'var(--text-muted)', maxWidth: '480px' }}>
           Your current role (<strong>{role}</strong>) does not have permission to access this module.
         </p>
-        <Navigate to={fallback} replace />
+        <a href={fallback} className="primary-button" style={{ textDecoration: 'none' }}>
+          Go to Allowed Page
+        </a>
       </div>
     )
   }

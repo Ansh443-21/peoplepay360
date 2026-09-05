@@ -122,3 +122,38 @@
   background: var(--code-bg);
   color: var(--status-expired-text);
 }
+
+/* Nav item button inside SPA */
+.nav-item-btn {
+  font-size: 15px;
+  color: var(--text);
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nav-item-btn:hover {
+  background: var(--code-bg);
+  color: var(--text-h);
+}
+
+.nav-item-btn.active {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.nav-item-btn.locked {
+  opacity: 0.65;
+}
+
+.nav-item-btn.locked:hover {
+  background: rgba(239, 68, 68, 0.08);
+  color: var(--text);
+}

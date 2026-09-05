@@ -127,6 +127,26 @@
   background-position: right 12px center;
   background-size: 10px;
   padding-right: 32px;
+  cursor: pointer;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.timeoff-toolbar .status-select {
+  padding: 0 12px;
+  padding-right: 32px;
+  height: 42px;
+}
+
+.status-select:hover,
+.timeoff-form select:hover {
+  border-color: var(--primary);
+}
+
+.status-select:focus,
+.timeoff-form select:focus {
+  border-color: var(--primary);
+  outline: none;
 }
 
 .table-card {

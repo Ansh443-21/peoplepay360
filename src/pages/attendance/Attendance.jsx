@@ -1,5 +1,6 @@
-﻿import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Search, Plus, MoreHorizontal, CheckCircle2, Loader2 } from 'lucide-react'
+import { useAuth, ROLES } from '../../context/AuthContext.jsx'
 import { employeesApi } from '../../api/client.js'
 import './Attendance.css'
 
@@ -36,6 +37,9 @@ const computeWorkedHours = (checkIn, checkOut) => {
 }
 
 function Attendance() {
+  const { role, employeeId, user } = useAuth()
+  const isEmployeeRole = role === ROLES.EMPLOYEE
+
   const [attendanceList, setAttendanceList] = useState(initialAttendanceData)
   const [employees, setEmployees] = useState([])
   const [search, setSearch] = useState('')
@@ -80,6 +84,11 @@ function Attendance() {
 
   const filteredAttendance = useMemo(() => {
     return attendanceList.filter((record) => {
+      // If EMPLOYEE role, restrict attendance view to own records if employeeId exists
+      if (isEmployeeRole && employeeId && String(record.employee_id) !== String(employeeId)) {
+        return false
+      }
+
       const matchesSearch =
         record.employeeName.toLowerCase().includes(search.toLowerCase()) ||
         record.email.toLowerCase().includes(search.toLowerCase())
@@ -91,13 +100,16 @@ function Attendance() {
 
       return matchesSearch && matchesStatus && matchesDate
     })
-  }, [attendanceList, search, statusFilter, dateFilter])
+  }, [attendanceList, search, statusFilter, dateFilter, isEmployeeRole, employeeId])
 
   const handleOpenModal = () => {
     setModalError('')
+    const targetEmpId = isEmployeeRole && employeeId
+      ? employeeId
+      : (employees.length > 0 ? employees[0].id : '')
     setFormData({
       ...initialForm,
-      employee_id: employees.length > 0 ? employees[0].id : ''
+      employee_id: targetEmpId
     })
     setIsModalOpen(true)
   }
@@ -106,7 +118,9 @@ function Attendance() {
     e.preventDefault()
     setModalError('')
 
-    if (!formData.employee_id) {
+    const effectiveEmpId = isEmployeeRole && employeeId ? employeeId : formData.employee_id
+
+    if (!effectiveEmpId) {
       setModalError('Please select an employee.')
       return
     }
@@ -117,7 +131,7 @@ function Attendance() {
 
     setSubmitting(true)
 
-    const selectedEmp = employees.find(emp => String(emp.id) === String(formData.employee_id))
+    const selectedEmp = employees.find(emp => String(emp.id) === String(effectiveEmpId)) || user
     const workedHours = formData.status === 'ABSENT' 
       ? '0h 0m' 
       : computeWorkedHours(formData.checkIn, formData.checkOut)
@@ -263,16 +277,25 @@ function Attendance() {
                 <label>Employee *</label>
                 <select
                   name="employee_id"
-                  value={formData.employee_id}
+                  value={isEmployeeRole && employeeId ? employeeId : formData.employee_id}
                   onChange={(e) => setFormData(prev => ({ ...prev, employee_id: e.target.value }))}
-                  disabled={submitting}
+                  disabled={submitting || isEmployeeRole}
                 >
-                  <option value="">Select an Employee</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.full_name || emp.name} ({emp.email || emp.job_position || 'Staff'})
+                  {isEmployeeRole && (
+                    <option value={employeeId || ''}>
+                      {user?.full_name || user?.name || user?.username || 'My Profile'}
                     </option>
-                  ))}
+                  )}
+                  {!isEmployeeRole && (
+                    <>
+                      <option value="">Select an Employee</option>
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.full_name || emp.name} ({emp.email || emp.job_position || 'Staff'})
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </div>
 
