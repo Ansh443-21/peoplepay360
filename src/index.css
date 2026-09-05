@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -8,8 +8,47 @@
   --accent-bg: rgba(170, 59, 255, 0.1);
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  /* Additional app variables (light theme defaults matching original colors) */
+  --app-bg: #ffffff;
+  --card-bg: #ffffff;
+  --card-border: #e4dfe8;
+  
+  --text-main: #4d4657;
+  --text-heading: #17131d;
+  --text-muted: #746d7d;
+  --text-strong: #241f29;
+  --text-sub: #8a8390;
+
+  --primary: #8b3dff;
+  --primary-hover: #7323e5;
+  --primary-text: #ffffff;
+  
+  --input-bg: #ffffff;
+  --input-border: #ddd8e4;
+  
+  --table-th-bg: #faf9fb;
+  --table-th-border: #e8e4eb;
+  --table-td-border: #eeeaf0;
+  
+  --avatar-bg: #eee2ff;
+  --avatar-text: #7d32df;
+
+  --btn-icon: #77707c;
+  --btn-active-bg: #f1e6ff;
+  --btn-active-text: #8b3dff;
+  
+  --status-active-bg: #e8f7ed;
+  --status-active-text: #238348;
+  --status-inactive-bg: #f0edf2;
+  --status-inactive-text: #77707c;
+  --status-expired-bg: #fdf3eb;
+  --status-expired-text: #b75e11;
+  --status-pending-bg: #ebf3fe;
+  --status-pending-text: #175cd3;
+  
+  --hover-bg: #f6f3f8;
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -18,8 +57,8 @@
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
   color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  color: var(--text-main);
+  background: var(--app-bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -30,24 +69,63 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+:root[data-theme='dark'] {
+  --text: #9ca3af;
+  --text-h: #f3f4f6;
+  --bg: #16171d;
+  --border: #2e303a;
+  --code-bg: #1f2028;
+  --accent: #c084fc;
+  --accent-bg: rgba(192, 132, 252, 0.15);
+  --accent-border: rgba(192, 132, 252, 0.5);
+  --social-bg: rgba(47, 48, 58, 0.5);
+  --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+  /* Dark theme overrides */
+  --app-bg: #111118;
+  --card-bg: #1e1e2d;
+  --card-border: #323248;
+  
+  --text-main: #b5b5c3;
+  --text-heading: #ffffff;
+  --text-muted: #a1a5b7;
+  --text-strong: #ffffff;
+  --text-sub: #7e8299;
+
+  --primary: #8b3dff;
+  --primary-hover: #9b59b6;
+  --primary-text: #ffffff;
+  
+  --input-bg: #151521;
+  --input-border: #323248;
+  
+  --table-th-bg: #1a1a27;
+  --table-th-border: #323248;
+  --table-td-border: #323248;
+  
+  --avatar-bg: #2b2b40;
+  --avatar-text: #c18bff;
+
+  --btn-icon: #a1a5b7;
+  --btn-active-bg: #2b2b40;
+  --btn-active-text: #8b3dff;
+  
+  --status-active-bg: #1c3238;
+  --status-active-text: #50cd89;
+  --status-inactive-bg: #2b2b40;
+  --status-inactive-text: #a1a5b7;
+  --status-expired-bg: #392f28;
+  --status-expired-text: #f1416c;
+  --status-pending-bg: #212e48;
+  --status-pending-text: #009ef7;
+  
+  --hover-bg: #212130;
 }
 
 body {
   margin: 0;
+  background-color: var(--app-bg);
+  color: var(--text-main);
 }
 
 #root {
@@ -59,7 +137,7 @@ h1,
 h2 {
   font-family: var(--heading);
   font-weight: 500;
-  color: var(--text-h);
+  color: var(--text-heading);
 }
 
 h1 {

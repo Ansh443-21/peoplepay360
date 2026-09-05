@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { Search, Plus, MoreHorizontal, Mail, LayoutGrid, List } from 'lucide-react'
 import './Employees.css'
 
-const employees = [
+const initialEmployees = [
   { id: 1, name: 'Rishika Patel', role: 'HR Manager', department: 'Human Resources', email: 'rishika@peoplepay360.com', status: 'Active', type: 'Full Time' },
   { id: 2, name: 'Chit Brahmbhatt', role: 'Software Engineer', department: 'Engineering', email: 'chit@peoplepay360.com', status: 'Active', type: 'Full Time' },
   { id: 3, name: 'Ansh Vaghela', role: 'Frontend Developer', department: 'Engineering', email: 'ansh@peoplepay360.com', status: 'Active', type: 'Full Time' },
@@ -12,12 +12,28 @@ const employees = [
 ]
 
 function Employees() {
+  const [employeeList, setEmployeeList] = useState(initialEmployees)
   const [search, setSearch] = useState('')
   const [department, setDepartment] = useState('All Departments')
   const [view, setView] = useState('list')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  const initialForm = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    department: 'Engineering',
+    role: '',
+    type: 'Full Time',
+    joiningDate: '',
+    status: 'Active'
+  }
+  const [formData, setFormData] = useState(initialForm)
 
   const filteredEmployees = useMemo(() => {
-    return employees.filter((employee) => {
+    return employeeList.filter((employee) => {
       const matchesSearch =
         employee.name.toLowerCase().includes(search.toLowerCase()) ||
         employee.role.toLowerCase().includes(search.toLowerCase()) ||
@@ -28,7 +44,37 @@ function Employees() {
 
       return matchesSearch && matchesDepartment
     })
-  }, [search, department])
+  }, [employeeList, search, department])
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setErrorMsg('')
+    
+    // Basic validation
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.role) {
+      setErrorMsg('Please fill in all required fields (First Name, Last Name, Email, Position).')
+      return
+    }
+
+    const newEmployee = {
+      id: Date.now(),
+      name: `${formData.firstName} ${formData.lastName}`,
+      role: formData.role,
+      department: formData.department,
+      email: formData.email,
+      status: formData.status,
+      type: formData.type
+    }
+
+    setEmployeeList((prev) => [...prev, newEmployee])
+    setIsModalOpen(false)
+    setFormData(initialForm)
+  }
 
   return (
     <div className="employees-page">
@@ -38,7 +84,7 @@ function Employees() {
           <p>Manage your organization's employees</p>
         </div>
 
-        <button className="primary-button">
+        <button className="primary-button" onClick={() => setIsModalOpen(true)}>
           <Plus size={18} />
           Add Employee
         </button>
@@ -169,6 +215,89 @@ function Employees() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {isModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2>Add New Employee</h2>
+            {errorMsg && <div className="modal-error">{errorMsg}</div>}
+            
+            <form onSubmit={handleSubmit} className="employee-form">
+              <div className="form-row">
+                <div className="form-group">
+                  <label>First Name *</label>
+                  <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} />
+                </div>
+                <div className="form-group">
+                  <label>Last Name *</label>
+                  <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Email *</label>
+                  <input type="email" name="email" value={formData.email} onChange={handleInputChange} />
+                </div>
+                <div className="form-group">
+                  <label>Phone</label>
+                  <input type="text" name="phone" value={formData.phone} onChange={handleInputChange} />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Department</label>
+                  <select name="department" value={formData.department} onChange={handleInputChange}>
+                    <option>Human Resources</option>
+                    <option>Engineering</option>
+                    <option>Finance</option>
+                    <option>Design</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Job Position *</label>
+                  <input type="text" name="role" value={formData.role} onChange={handleInputChange} />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Employee Type</label>
+                  <select name="type" value={formData.type} onChange={handleInputChange}>
+                    <option>Full Time</option>
+                    <option>Part Time</option>
+                    <option>Contract</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Joining Date</label>
+                  <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Status</label>
+                  <select name="status" value={formData.status} onChange={handleInputChange}>
+                    <option>Active</option>
+                    <option>Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="secondary-button" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="primary-button">
+                  Add Employee
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

@@ -1,4 +1,6 @@
-﻿import { NavLink, Outlet } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { NavLink, Outlet } from 'react-router-dom'
+import { Sun, Moon } from 'lucide-react'
 import './AppShell.css'
 
 const NAV_ITEMS = [
@@ -11,6 +13,19 @@ const NAV_ITEMS = [
 ]
 
 function AppShell() {
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('peoplepay_theme') || 'light'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('peoplepay_theme', theme)
+  }, [theme])
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light')
+  }
+
   return (
     <div id="app-shell">
       <header id="app-header">
@@ -26,6 +41,13 @@ function AppShell() {
             </NavLink>
           ))}
         </nav>
+        <button 
+          onClick={toggleTheme} 
+          className="theme-toggle"
+          aria-label="Toggle theme"
+        >
+          {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+        </button>
         <NavLink to="/users" id="users-link" className={({ isActive }) => (isActive ? 'active' : undefined)}>
           User Management
         </NavLink>
