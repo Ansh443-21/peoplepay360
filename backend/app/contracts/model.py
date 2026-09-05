@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import String, Date, DateTime, Numeric, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.app.database import Base
+from app.database import Base
 
 
 class Contract(Base):

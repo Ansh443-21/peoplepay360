@@ -1,18 +1,18 @@
 from fastapi import FastAPI
 
-from backend.app.database import Base, engine
+from app.database import Base, engine
 
-from backend.app.employees.model import Employee
-from backend.app.employees.router import router as employees_router
+from app.employees.model import Employee
+from app.employees.router import router as employees_router
 
-from backend.app.schedules.router import router as schedules_router
+from app.schedules.router import router as schedules_router
 
-from backend.app.contracts.router import (
+from app.contracts.router import (
     router as contracts_router,
     active_contract_router,
 )
 
-from backend.app.payroll_routes import router as payroll_router
+from app.payroll_routes import router as payroll_router
 
 
 app = FastAPI(

@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import Column, String, Boolean, Time
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
 
-from backend.app.database import Base
+from app.database import Base
 
 
 class Schedule(Base):

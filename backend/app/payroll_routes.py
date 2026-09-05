@@ -10,10 +10,10 @@ from fastapi import APIRouter, Body, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
-from backend.app.payroll_hr_client import ActiveContractProvider, get_hr_client
-from backend.app.payroll_models import SalaryStructure
-from backend.app.payroll_schemas import (
+from app.database import get_db
+from app.payroll_hr_client import ActiveContractProvider, get_hr_client
+from app.payroll_models import SalaryStructure
+from app.payroll_schemas import (
     ComputePayrunRequest,
     ComputePayrunResponse,
     CreatePayrunRequest,
@@ -25,7 +25,7 @@ from backend.app.payroll_schemas import (
     PayslipSummaryResponse,
     SalaryStructureStub,
 )
-from backend.app.payroll_service import (
+from app.payroll_service import (
     EmptyEmployeeListError,
     InvalidPayrunStateError,
     InvalidPeriodError,
@@ -44,7 +44,7 @@ from backend.app.payroll_service import (
     mark_payrun_paid,
     validate_payrun,
 )
-from backend.app.payroll_hr_client import HRClientError
+from app.payroll_hr_client import HRClientError
 
 router = APIRouter(prefix="/api/v1/payroll", tags=["payroll"])
 

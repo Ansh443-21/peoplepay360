@@ -3,9 +3,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
-from backend.app.schedules import service
-from backend.app.schedules.schema import (
+from app.database import get_db
+from app.schedules import service
+from app.schedules.schema import (
     ScheduleCreate,
     ScheduleUpdate,
     ScheduleResponse,

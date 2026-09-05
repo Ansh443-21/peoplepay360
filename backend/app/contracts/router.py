@@ -4,9 +4,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
-from backend.app.contracts import service
-from backend.app.contracts.schema import ContractCreate, ContractUpdate, ContractResponse
+from app.database import get_db
+from app.contracts import service
+from app.contracts.schema import ContractCreate, ContractUpdate, ContractResponse
 
 router = APIRouter(prefix="/api/v1/contracts", tags=["contracts"])
 

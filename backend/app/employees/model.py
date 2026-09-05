@@ -4,7 +4,7 @@ from datetime import date, datetime
 from sqlalchemy import String, Date, DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.app.database import Base
+from app.database import Base
 
 
 class Employee(Base):
