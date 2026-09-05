@@ -15,6 +15,10 @@ from app.contracts.router import (
 
 from app.payroll_routes import router as payroll_router
 
+from app.attendance_routes import router as attendance_router
+from app.time_off_routes import router as time_off_router
+from app.auth_routes import router as auth_router
+
 
 app = FastAPI(
     title="PeoplePay360 API",
@@ -65,3 +69,6 @@ app.include_router(schedules_router)
 app.include_router(contracts_router)
 app.include_router(active_contract_router)
 app.include_router(payroll_router)
+app.include_router(attendance_router)
+app.include_router(time_off_router)
+app.include_router(auth_router)
