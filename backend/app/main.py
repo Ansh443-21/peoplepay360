@@ -26,6 +26,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://peoplepay360-frontend.vercel.app",
+        "https://peoplepay360-frontend-ic5daiq2t-ansh443-21.vercel.app",
         "http://localhost:5173",
     ],
     allow_credentials=True,
