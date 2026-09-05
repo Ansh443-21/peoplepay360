@@ -9,9 +9,9 @@ from sqlalchemy import engine_from_config, pool
 BACKEND_DIR = Path(__file__).resolve().parents[2] / "backend"
 sys.path.insert(0, str(BACKEND_DIR))
 
-from app.config import get_settings   # noqa: E402
-from app.database import Base         # noqa: E402
-# from app.models import *            # uncomment once HR/payroll models exist
+from backend.app.config import get_settings   # noqa: E402
+from backend.app.database import Base         # noqa: E402
+# from backend.app.models import *            # uncomment once HR/payroll models exist
 
 config = context.config
 

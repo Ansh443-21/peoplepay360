@@ -6,9 +6,9 @@ SalaryRule rows (already fetched by the caller) and a CalculationInput,
 computes gross/deductions/net + per-rule payslip lines.
 """
 
-from app.payroll_engine.engine import calculate_payslip
-from app.payroll_engine.context import CalculationContext, CalculationInput, CalculationResult, PayslipLineResult
-from app.payroll_engine.exceptions import (
+from backend.app.payroll_engine.engine import calculate_payslip
+from backend.app.payroll_engine.context import CalculationContext, CalculationInput, CalculationResult, PayslipLineResult
+from backend.app.payroll_engine.exceptions import (
     PayrollEngineError,
     InvalidPayrollPeriodError,
     InvalidRuleError,

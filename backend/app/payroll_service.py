@@ -32,9 +32,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.payroll_hr_client import ActiveContractProvider, HRClientError
-from app.payroll_engine import CalculationInput, PayrollEngineError, calculate_payslip
-from app.payroll_models import (
+from backend.app.payroll_hr_client import ActiveContractProvider, HRClientError
+from backend.app.payroll_engine import CalculationInput, PayrollEngineError, calculate_payslip
+from backend.app.payroll_models import (
     Payrun,
     PayrunStatus,
     Payslip,

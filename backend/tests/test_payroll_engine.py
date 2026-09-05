@@ -10,10 +10,10 @@ from uuid import uuid4
 
 import pytest
 
-from app.payroll_models import ComputationType
-from app.payroll_engine.context import CalculationInput
-from app.payroll_engine.engine import calculate_payslip
-from app.payroll_engine.exceptions import (
+from backend.app.payroll_models import ComputationType
+from backend.app.payroll_engine.context import CalculationInput
+from backend.app.payroll_engine.engine import calculate_payslip
+from backend.app.payroll_engine.exceptions import (
     MissingPercentageBaseError,
     UnknownFormulaVariableError,
     UnsafeFormulaError,

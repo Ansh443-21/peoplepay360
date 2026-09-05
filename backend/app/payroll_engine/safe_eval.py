@@ -21,7 +21,7 @@ Rejected (raises UnsafeFormulaError):
 import ast
 from decimal import Decimal, DivisionByZero, InvalidOperation
 
-from app.payroll_engine.exceptions import (
+from backend.app.payroll_engine.exceptions import (
     InvalidFormulaError,
     UnknownFormulaVariableError,
     UnsafeFormulaError,
