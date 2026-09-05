@@ -29,10 +29,13 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://peoplepay360.vercel.app",
         "https://peoplepay360-frontend.vercel.app",
         "https://peoplepay360-frontend-ic5daiq2t-ansh443-21.vercel.app",
         "http://localhost:5173",
+        "http://localhost:3000",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
     allow_headers=["*"],
@@ -42,6 +45,14 @@ app.add_middleware(
 @app.on_event("startup")
 def create_tables():
     Base.metadata.create_all(bind=engine)
+    try:
+        try:
+            from scripts.seed_auth import seed
+        except ImportError:
+            from backend.scripts.seed_auth import seed
+        seed()
+    except Exception as exc:
+        print(f"Startup auth seed notice: {exc}")
 
 
 @app.get("/")

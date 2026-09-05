@@ -6,6 +6,10 @@ from app.config import get_settings
 def send_otp_email(to_email: str, otp: str) -> None:
     settings = get_settings()
 
+    if not settings.RESEND_API_KEY:
+        print(f"[DEMO EMAIL] Password reset OTP for {to_email} is: {otp}")
+        return
+
     resend.api_key = settings.RESEND_API_KEY
 
     resend.Emails.send(

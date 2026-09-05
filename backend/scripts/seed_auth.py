@@ -20,7 +20,13 @@ DEMO_PASSWORD = "Demo@12345"
 DEMO_USERS = [
     {
         "username": "admin",
-        "email": "admin@peoplepay360.demo",
+        "email": "anahvaghela4@gmail.com",
+        "role": UserRole.ADMIN,
+        "employee_code": None,
+    },
+    {
+        "username": "anahvaghela4",
+        "email": "anahvaghela4@gmail.com",
         "role": UserRole.ADMIN,
         "employee_code": None,
     },
