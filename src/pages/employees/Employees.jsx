@@ -77,12 +77,18 @@ function Employees() {
     setLoading(true)
     setApiError(null)
     try {
-      const data = await employeesApi.getAll()
-      if (Array.isArray(data)) {
-        setEmployeeList(data.map(normalizeEmployee))
-        setIsFallback(false)
-      } else if (data && Array.isArray(data.items)) {
-        setEmployeeList(data.items.map(normalizeEmployee))
+      const response = await employeesApi.getAll()
+      // FastAPI envelope: { success: true, data: [...], pagination: {...} } or raw array / items
+      const rawList = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response?.items)
+        ? response.items
+        : null
+
+      if (rawList) {
+        setEmployeeList(rawList.map(normalizeEmployee))
         setIsFallback(false)
       } else {
         // Fallback to local mock if data is unexpected
@@ -177,7 +183,8 @@ function Employees() {
       // PATCH /employees/{employee_id}
       try {
         const updated = await employeesApi.update(editingEmployee.id, payload)
-        const normalized = normalizeEmployee(updated)
+        const updatedObj = (updated && updated.data) ? updated.data : updated
+        const normalized = normalizeEmployee(updatedObj)
         setEmployeeList((prev) =>
           prev.map((emp) => (emp.id === editingEmployee.id ? normalized : emp))
         )
@@ -206,7 +213,8 @@ function Employees() {
       // POST /employees
       try {
         const created = await employeesApi.create(payload)
-        const normalized = normalizeEmployee(created)
+        const createdObj = (created && created.data) ? created.data : created
+        const normalized = normalizeEmployee(createdObj)
         setEmployeeList((prev) => [normalized, ...prev])
         setIsModalOpen(false)
         setFormData(initialForm)
