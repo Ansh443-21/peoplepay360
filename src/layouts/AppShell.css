@@ -71,3 +71,54 @@
   padding: 32px 24px;
   text-align: left;
 }
+/* Role Switcher in Header */
+.header-role-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 4px 10px;
+}
+
+.role-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.role-select {
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  font-family: inherit;
+  padding: 4px 0;
+}
+
+.role-select option {
+  background-color: var(--card-bg);
+  color: var(--text-main);
+}
+
+.header-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.header-logout-btn:hover {
+  background: var(--code-bg);
+  color: var(--status-expired-text);
+}

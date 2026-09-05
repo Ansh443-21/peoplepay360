@@ -1,4 +1,4 @@
-﻿import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import AppShell from './layouts/AppShell.jsx'
 import Login from './pages/Login/Login.jsx'
 import Users from './pages/Users/Users.jsx'
@@ -8,6 +8,7 @@ import Schedules from './pages/Schedules/Schedules.jsx'
 import Attendance from './pages/Attendance/Attendance.jsx'
 import TimeOff from './pages/TimeOff/TimeOff.jsx'
 import Payroll from './pages/Payroll/Payroll.jsx'
+import ProtectedRoute from './components/ProtectedRoute.jsx'
 
 const router = createBrowserRouter([
   {
@@ -19,13 +20,62 @@ const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <Navigate to="/employees" replace /> },
-      { path: 'users', element: <Users /> },
-      { path: 'employees', element: <Employees /> },
-      { path: 'contracts', element: <Contracts /> },
-      { path: 'schedules', element: <Schedules /> },
-      { path: 'attendance', element: <Attendance /> },
-      { path: 'time-off', element: <TimeOff /> },
-      { path: 'payroll', element: <Payroll /> },
+      {
+        path: 'users',
+        element: (
+          <ProtectedRoute path="/users">
+            <Users />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'employees',
+        element: (
+          <ProtectedRoute path="/employees">
+            <Employees />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'contracts',
+        element: (
+          <ProtectedRoute path="/contracts">
+            <Contracts />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'schedules',
+        element: (
+          <ProtectedRoute path="/schedules">
+            <Schedules />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'attendance',
+        element: (
+          <ProtectedRoute path="/attendance">
+            <Attendance />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'time-off',
+        element: (
+          <ProtectedRoute path="/time-off">
+            <TimeOff />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'payroll',
+        element: (
+          <ProtectedRoute path="/payroll">
+            <Payroll />
+          </ProtectedRoute>
+        ),
+      },
     ],
   },
 ])

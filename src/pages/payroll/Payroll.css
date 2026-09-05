@@ -1004,3 +1004,287 @@ tbody tr:hover {
     display: none;
   }
 }
+
+/* Stage 5: Enhanced Dashboard Styles */
+.kpi-grid-4 {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.kpi-subtext {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.kpi-subtext.positive {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--status-active-text);
+  font-weight: 500;
+}
+
+.kpi-subtext.deduction-sub {
+  color: var(--status-expired-text);
+}
+
+.dashboard-middle-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.dash-card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dash-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dash-card-eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.dash-card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-heading);
+}
+
+.cycle-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.cycle-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cm-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.cm-val {
+  font-size: 14px;
+  color: var(--text-main);
+}
+
+.cm-val.font-bold {
+  font-weight: 700;
+}
+
+.cm-val.highlight {
+  color: var(--primary);
+  font-size: 15px;
+}
+
+.dashboard-advisory-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--status-expired-bg);
+  color: var(--status-expired-text);
+  border: 1px solid var(--status-expired-text);
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+
+.cycle-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+}
+
+/* Visual Progress & Distribution Bar */
+.visual-breakdown-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  height: 100%;
+}
+
+.payroll-visual-progress-bar {
+  display: flex;
+  height: 14px;
+  border-radius: 999px;
+  overflow: hidden;
+  background-color: var(--border);
+  gap: 2px;
+}
+
+.prog-seg {
+  height: 100%;
+  transition: opacity 0.2s;
+}
+
+.prog-seg:hover {
+  opacity: 0.85;
+}
+
+.seg-paid {
+  background-color: #10b981;
+}
+
+.seg-validated {
+  background-color: #6366f1;
+}
+
+.seg-computed {
+  background-color: #3b82f6;
+}
+
+.seg-draft {
+  background-color: #94a3b8;
+}
+
+.status-progress-legend {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.legend-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-paid { background-color: #10b981; }
+.dot-validated { background-color: #6366f1; }
+.dot-computed { background-color: #3b82f6; }
+.dot-draft { background-color: #94a3b8; }
+
+.legend-item span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.legend-item strong {
+  font-size: 14px;
+  color: var(--text-heading);
+}
+
+/* Financial distribution gauge */
+.financial-distribution-card {
+  background-color: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: auto;
+}
+
+.fd-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.fd-header strong {
+  color: var(--text-heading);
+}
+
+.fd-bar-wrap {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.fd-bar-net {
+  background-color: var(--primary);
+}
+
+.fd-bar-ded {
+  background-color: var(--status-expired-text);
+}
+
+.fd-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.fd-tag.net-tag {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.fd-tag.ded-tag {
+  color: var(--status-expired-text);
+}
+
+/* Dashboard Bottom Grid */
+.dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.table-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 0;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  transition: opacity 0.2s;
+}
+
+.table-link-btn:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 900px) {
+  .dashboard-middle-row,
+  .dashboard-bottom-grid {
+    grid-template-columns: 1fr;
+  }
+  .cycle-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

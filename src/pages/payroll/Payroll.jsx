@@ -19,8 +19,13 @@ import {
   Calendar,
   Send,
   ArrowRight,
-  Check
+  Check,
+  TrendingUp,
+  PieChart,
+  Activity,
+  Layers
 } from 'lucide-react'
+import { useAuth, ROLES } from '../../context/AuthContext.jsx'
 import './Payroll.css'
 
 const availableEmployees = [
@@ -204,7 +209,18 @@ const formatCurrency = (amount) => {
 }
 
 function Payroll() {
-  const [activeTab, setActiveTab] = useState('payruns') // 'payruns' | 'payslips' | 'structures'
+  const { isRole } = useAuth()
+
+  // RBAC permissions for Payroll module
+  const canViewStructures = isRole(ROLES.HR_PAYROLL_MANAGER, ROLES.ADMIN)
+  const canManagePayruns = isRole(ROLES.HR_PAYROLL_MANAGER, ROLES.ADMIN)
+  const isEmployeeOnly = isRole(ROLES.EMPLOYEE)
+
+  // Default active tab based on role
+  const [activeTab, setActiveTab] = useState(() => {
+    if (isEmployeeOnly) return 'payslips'
+    return 'dashboard'
+  })
 
   // Payruns State
   const [payruns, setPayruns] = useState(initialPayruns)
@@ -239,9 +255,50 @@ function Payroll() {
   const [ruleForm, setRuleForm] = useState({ code: '', name: '', category: 'Allowance', amount: '', type: 'Fixed' })
   const [editingRuleId, setEditingRuleId] = useState(null)
 
-  // Dashboard calculations
-  const totalPaid = payruns.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.net, 0)
-  const nextDraft = payruns.find(p => p.status !== 'PAID')
+  // Comprehensive Dashboard calculations
+  const totalPaid = useMemo(() => {
+    return payruns.filter(p => p.status === 'PAID').reduce((sum, p) => sum + p.net, 0)
+  }, [payruns])
+
+  const totalGrossPayroll = useMemo(() => {
+    return payruns.reduce((sum, p) => sum + p.gross, 0)
+  }, [payruns])
+
+  const totalDeductionsAll = useMemo(() => {
+    return payruns.reduce((sum, p) => sum + p.deductions, 0)
+  }, [payruns])
+
+  const totalNetPayroll = useMemo(() => {
+    return payruns.reduce((sum, p) => sum + p.net, 0)
+  }, [payruns])
+
+  const latestPayrun = useMemo(() => {
+    return payruns[0] || null
+  }, [payruns])
+
+  const nextDraft = useMemo(() => {
+    return payruns.find(p => p.status !== 'PAID')
+  }, [payruns])
+
+  const totalEmployeesProcessed = useMemo(() => {
+    return payruns.reduce((acc, curr) => acc + (curr.employeeCount || 0), 0)
+  }, [payruns])
+
+  const payrunStatusCounts = useMemo(() => {
+    const counts = { DRAFT: 0, COMPUTED: 0, VALIDATED: 0, PAID: 0 }
+    payruns.forEach(p => {
+      if (counts[p.status] !== undefined) counts[p.status]++
+    })
+    return counts
+  }, [payruns])
+
+  const recentPayrunsList = useMemo(() => {
+    return payruns.slice(0, 4)
+  }, [payruns])
+
+  const recentPayslipsList = useMemo(() => {
+    return payslipsList.slice(0, 4)
+  }, [payslipsList])
 
   const filteredPayruns = useMemo(() => {
     return payruns.filter(pr => 
@@ -1027,39 +1084,384 @@ function Payroll() {
     )
   }
 
-  // 4. Main Dashboard View with 3 Tabs: Payruns | Payslips | Salary Structures
+  // 4. Main Dashboard View with Role-Gated Tabs: Dashboard | Payruns | Payslips | Salary Structures
   return (
     <div className="payroll-page">
       <div className="payroll-header">
         <div>
-          <h1>Payroll Management</h1>
-          <p>Process payroll payruns, review generated payslips, and configure salary compensation structures</p>
+          <h1>{isEmployeeOnly ? 'My Payslips & Compensation' : 'Payroll Management'}</h1>
+          <p>
+            {isEmployeeOnly
+              ? 'View personal payroll statements and compensation breakdown'
+              : 'Process payroll payruns, review generated payslips, and configure salary compensation structures'}
+          </p>
         </div>
-        {activeTab === 'payruns' && (
+        {canManagePayruns && (
           <button className="primary-button" onClick={handleOpenWizard}>
             <Plus size={18} />
             Create Payrun
           </button>
         )}
-        {activeTab === 'structures' && (
-          <button className="primary-button" onClick={() => setIsStructModalOpen(true)}>
-            <Plus size={18} />
-            Create Structure
+      </div>
+
+      <div className="payroll-tabs">
+        {!isEmployeeOnly && (
+          <button className={activeTab === 'dashboard' ? 'active' : ''} onClick={() => setActiveTab('dashboard')}>
+            Dashboard
+          </button>
+        )}
+        {!isEmployeeOnly && (
+          <button className={activeTab === 'payruns' ? 'active' : ''} onClick={() => setActiveTab('payruns')}>
+            Payruns
+          </button>
+        )}
+        <button className={activeTab === 'payslips' ? 'active' : ''} onClick={() => setActiveTab('payslips')}>
+          Payslips
+        </button>
+        {canViewStructures && (
+          <button className={activeTab === 'structures' ? 'active' : ''} onClick={() => setActiveTab('structures')}>
+            Salary Structures
           </button>
         )}
       </div>
 
-      <div className="payroll-tabs">
-        <button className={activeTab === 'payruns' ? 'active' : ''} onClick={() => setActiveTab('payruns')}>
-          Payruns
-        </button>
-        <button className={activeTab === 'payslips' ? 'active' : ''} onClick={() => setActiveTab('payslips')}>
-          Payslips
-        </button>
-        <button className={activeTab === 'structures' ? 'active' : ''} onClick={() => setActiveTab('structures')}>
-          Salary Structures
-        </button>
-      </div>
+      {/* Tab 0: Comprehensive Payroll Dashboard (Stage 5) */}
+      {activeTab === 'dashboard' && (
+        <div className="tab-content dashboard-tab-content">
+          {/* Top KPI Metrics Grid */}
+          <div className="payroll-dashboard kpi-grid-4">
+            <div className="stat-card">
+              <div className="stat-icon success"><DollarSign size={24} /></div>
+              <div className="stat-info">
+                <p>Total Paid (Disbursed)</p>
+                <h3>{formatCurrency(totalPaid)}</h3>
+                <span className="kpi-subtext positive">
+                  <TrendingUp size={12} /> YTD Settled Payroll
+                </span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon"><Activity size={24} /></div>
+              <div className="stat-info">
+                <p>Total Gross Payroll</p>
+                <h3>{formatCurrency(totalGrossPayroll)}</h3>
+                <span className="kpi-subtext">
+                  Across all active cycles
+                </span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon warning"><PieChart size={24} /></div>
+              <div className="stat-info">
+                <p>Total Deductions (Tax & PF)</p>
+                <h3>{formatCurrency(totalDeductionsAll)}</h3>
+                <span className="kpi-subtext deduction-sub">
+                  Withheld for tax & social security
+                </span>
+              </div>
+            </div>
+
+            <div className="stat-card">
+              <div className="stat-icon"><Users size={24} /></div>
+              <div className="stat-info">
+                <p>Employees Processed</p>
+                <h3>{totalEmployeesProcessed}</h3>
+                <span className="kpi-subtext">
+                  Across all pay periods
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Middle Row: Active Cycle Card + Visual Progress Breakdown */}
+          <div className="dashboard-middle-row">
+            {/* Latest Payrun Status Card */}
+            <div className="dash-card latest-cycle-card">
+              <div className="dash-card-header">
+                <div>
+                  <span className="dash-card-eyebrow">ACTIVE / LATEST PAYRUN</span>
+                  <h3>{latestPayrun ? latestPayrun.period : 'No active cycle'}</h3>
+                </div>
+                {latestPayrun && (
+                  <span className={`status status-${latestPayrun.status.toLowerCase()}`}>
+                    {latestPayrun.status}
+                  </span>
+                )}
+              </div>
+
+              {latestPayrun ? (
+                <div className="cycle-card-body">
+                  <div className="cycle-metrics-grid">
+                    <div className="cycle-metric">
+                      <span className="cm-label">Payrun ID</span>
+                      <span className="code-badge">{latestPayrun.payrun_id}</span>
+                    </div>
+                    <div className="cycle-metric">
+                      <span className="cm-label">Structure</span>
+                      <span className="cm-val">{latestPayrun.salary_structure_id || 'SS-1'}</span>
+                    </div>
+                    <div className="cycle-metric">
+                      <span className="cm-label">Employees</span>
+                      <span className="cm-val font-bold">{latestPayrun.employeeCount}</span>
+                    </div>
+                    <div className="cycle-metric">
+                      <span className="cm-label">Gross Amount</span>
+                      <span className="cm-val">{formatCurrency(latestPayrun.gross)}</span>
+                    </div>
+                    <div className="cycle-metric">
+                      <span className="cm-label">Net Payable</span>
+                      <span className="cm-val font-bold highlight">{formatCurrency(latestPayrun.net)}</span>
+                    </div>
+                    <div className="cycle-metric">
+                      <span className="cm-label">Payslips Sent</span>
+                      <span className="cm-val">{latestPayrun.payslipsSent ? 'Yes (Emailed)' : 'Pending'}</span>
+                    </div>
+                  </div>
+
+                  {latestPayrun.warnings && latestPayrun.warnings.length > 0 && (
+                    <div className="dashboard-advisory-notice">
+                      <AlertTriangle size={15} />
+                      <span>{latestPayrun.warnings[0]}</span>
+                    </div>
+                  )}
+
+                  <div className="cycle-card-actions">
+                    <button
+                      className="primary-button sm"
+                      onClick={() => setActivePayrunId(latestPayrun.payrun_id)}
+                    >
+                      Manage Payrun Flow <ArrowRight size={14} />
+                    </button>
+                    <button
+                      className="secondary-button sm"
+                      onClick={handleOpenWizard}
+                    >
+                      <Plus size={14} /> New Cycle
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-state">No payruns found.</div>
+              )}
+            </div>
+
+            {/* Visual Distribution & Stage Progression Chart */}
+            <div className="dash-card visual-breakdown-card">
+              <div className="dash-card-header">
+                <div>
+                  <span className="dash-card-eyebrow">PIPELINE & DISTRIBUTION</span>
+                  <h3>Processing Status Distribution</h3>
+                </div>
+                <Layers size={18} className="text-muted" />
+              </div>
+
+              <div className="visual-breakdown-body">
+                {/* Visual Segmented Progress Bar */}
+                <div className="payroll-visual-progress-bar">
+                  <div
+                    className="prog-seg seg-paid"
+                    style={{ flex: payrunStatusCounts.PAID || 0.1 }}
+                    title={`PAID: ${payrunStatusCounts.PAID}`}
+                  />
+                  <div
+                    className="prog-seg seg-validated"
+                    style={{ flex: payrunStatusCounts.VALIDATED || 0.1 }}
+                    title={`VALIDATED: ${payrunStatusCounts.VALIDATED}`}
+                  />
+                  <div
+                    className="prog-seg seg-computed"
+                    style={{ flex: payrunStatusCounts.COMPUTED || 0.1 }}
+                    title={`COMPUTED: ${payrunStatusCounts.COMPUTED}`}
+                  />
+                  <div
+                    className="prog-seg seg-draft"
+                    style={{ flex: payrunStatusCounts.DRAFT || 0.1 }}
+                    title={`DRAFT: ${payrunStatusCounts.DRAFT}`}
+                  />
+                </div>
+
+                {/* Legend with counts */}
+                <div className="status-progress-legend">
+                  <div className="legend-item">
+                    <span className="legend-dot dot-paid" />
+                    <span>PAID</span>
+                    <strong>{payrunStatusCounts.PAID}</strong>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-dot dot-validated" />
+                    <span>VALIDATED</span>
+                    <strong>{payrunStatusCounts.VALIDATED}</strong>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-dot dot-computed" />
+                    <span>COMPUTED</span>
+                    <strong>{payrunStatusCounts.COMPUTED}</strong>
+                  </div>
+                  <div className="legend-item">
+                    <span className="legend-dot dot-draft" />
+                    <span>DRAFT</span>
+                    <strong>{payrunStatusCounts.DRAFT}</strong>
+                  </div>
+                </div>
+
+                {/* Net vs Gross visual gauge */}
+                <div className="financial-distribution-card">
+                  <div className="fd-header">
+                    <span>Net Take-Home vs Deductions</span>
+                    <strong>
+                      {totalGrossPayroll > 0
+                        ? `${Math.round((totalNetPayroll / totalGrossPayroll) * 100)}% Net Ratio`
+                        : '100%'}
+                    </strong>
+                  </div>
+                  <div className="fd-bar-wrap">
+                    <div
+                      className="fd-bar-net"
+                      style={{
+                        width: totalGrossPayroll > 0 ? `${(totalNetPayroll / totalGrossPayroll) * 100}%` : '80%'
+                      }}
+                    />
+                    <div
+                      className="fd-bar-ded"
+                      style={{
+                        width: totalGrossPayroll > 0 ? `${(totalDeductionsAll / totalGrossPayroll) * 100}%` : '20%'
+                      }}
+                    />
+                  </div>
+                  <div className="fd-labels">
+                    <span className="fd-tag net-tag">Net: {formatCurrency(totalNetPayroll)}</span>
+                    <span className="fd-tag ded-tag">Deductions: {formatCurrency(totalDeductionsAll)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Grid: Recent Payruns & Recent Payslips */}
+          <div className="dashboard-bottom-grid">
+            {/* Recent Payruns Table */}
+            <div className="table-card">
+              <div className="table-header-bar">
+                <h3>Recent Payruns</h3>
+                <button
+                  className="table-link-btn"
+                  onClick={() => setActiveTab('payruns')}
+                >
+                  View All ({payruns.length}) <ArrowRight size={13} />
+                </button>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Period</th>
+                    <th>Payrun Ref</th>
+                    <th>Employees</th>
+                    <th>Net Amount</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentPayrunsList.map((pr) => (
+                    <tr
+                      key={pr.payrun_id}
+                      className="clickable-row"
+                      onClick={() => setActivePayrunId(pr.payrun_id)}
+                    >
+                      <td><strong>{pr.period}</strong></td>
+                      <td><span className="code-badge">{pr.payrun_id}</span></td>
+                      <td>{pr.employeeCount}</td>
+                      <td><strong>{formatCurrency(pr.net)}</strong></td>
+                      <td>
+                        <span className={`status status-${pr.status.toLowerCase()}`}>
+                          {pr.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className="secondary-button sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActivePayrunId(pr.payrun_id)
+                          }}
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Recent Generated Payslips Table */}
+            <div className="table-card">
+              <div className="table-header-bar">
+                <h3>Recent Payslips</h3>
+                <button
+                  className="table-link-btn"
+                  onClick={() => setActiveTab('payslips')}
+                >
+                  View All ({payslipsList.length}) <ArrowRight size={13} />
+                </button>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Period</th>
+                    <th>Net Salary</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentPayslipsList.map((ps) => (
+                    <tr
+                      key={ps.payslip_id}
+                      className="clickable-row"
+                      onClick={() => setActivePayslipId(ps.payslip_id)}
+                    >
+                      <td>
+                        <div className="employee-cell">
+                          <div className="avatar sm">
+                            {ps.employeeName.split(' ').map(p => p[0]).join('')}
+                          </div>
+                          <div>
+                            <strong>{ps.employeeName}</strong>
+                            <span className="cell-sub">{ps.role}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{ps.period}</td>
+                      <td><strong>{formatCurrency(ps.net)}</strong></td>
+                      <td>
+                        <span className={`status status-${ps.status.toLowerCase()}`}>
+                          {ps.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className="secondary-button sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActivePayslipId(ps.payslip_id)
+                          }}
+                        >
+                          <FileText size={13} style={{ marginRight: '3px' }} />
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tab 1: Payruns */}
       {activeTab === 'payruns' && (

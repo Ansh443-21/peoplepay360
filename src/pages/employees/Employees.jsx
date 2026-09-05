@@ -1,23 +1,63 @@
-import { useMemo, useState } from 'react'
-import { Search, Plus, MoreHorizontal, Mail, LayoutGrid, List } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { Search, Plus, MoreHorizontal, Mail, LayoutGrid, List, AlertCircle, RefreshCw, Loader2, Edit2 } from 'lucide-react'
+import { useAuth, ROLES } from '../../context/AuthContext.jsx'
+import { employeesApi } from '../../api/client.js'
 import './Employees.css'
 
-const initialEmployees = [
-  { id: 1, name: 'Rishika Giri', role: 'HR Manager', department: 'Human Resources', email: 'rishika@peoplepay360.com', status: 'Active', type: 'Full Time' },
-  { id: 2, name: 'Chit Brahmbhatt', role: 'Software Engineer', department: 'Engineering', email: 'chit@peoplepay360.com', status: 'Active', type: 'Full Time' },
-  { id: 3, name: 'Ansh Vaghela', role: 'Frontend Developer', department: 'Engineering', email: 'ansh@peoplepay360.com', status: 'Active', type: 'Full Time' },
-  { id: 4, name: 'Maya Shah', role: 'Finance Executive', department: 'Finance', email: 'maya@peoplepay360.com', status: 'Active', type: 'Full Time' },
-  { id: 5, name: 'Rahul Mehta', role: 'Product Designer', department: 'Design', email: 'rahul@peoplepay360.com', status: 'Inactive', type: 'Contract' },
-  { id: 6, name: 'Priya Desai', role: 'QA Engineer', department: 'Engineering', email: 'priya@peoplepay360.com', status: 'Active', type: 'Full Time' },
+const initialMockEmployees = [
+  { id: 1, employee_code: 'EMP-001', first_name: 'Rishika', last_name: 'Giri', full_name: 'Rishika Giri', name: 'Rishika Giri', role: 'HR Manager', job_position: 'HR Manager', department: 'Human Resources', department_name: 'Human Resources', email: 'rishika@peoplepay360.com', phone: '', status: 'Active', type: 'Full Time', employee_type: 'Full Time', joining_date: '2023-01-15' },
+  { id: 2, employee_code: 'EMP-002', first_name: 'Chit', last_name: 'Brahmbhatt', full_name: 'Chit Brahmbhatt', name: 'Chit Brahmbhatt', role: 'Software Engineer', job_position: 'Software Engineer', department: 'Engineering', department_name: 'Engineering', email: 'chit@peoplepay360.com', phone: '', status: 'Active', type: 'Full Time', employee_type: 'Full Time', joining_date: '2023-02-01' },
+  { id: 3, employee_code: 'EMP-003', first_name: 'Ansh', last_name: 'Vaghela', full_name: 'Ansh Vaghela', name: 'Ansh Vaghela', role: 'Frontend Developer', job_position: 'Frontend Developer', department: 'Engineering', department_name: 'Engineering', email: 'ansh@peoplepay360.com', phone: '', status: 'Active', type: 'Full Time', employee_type: 'Full Time', joining_date: '2023-03-10' },
+  { id: 4, employee_code: 'EMP-004', first_name: 'Maya', last_name: 'Shah', full_name: 'Maya Shah', name: 'Maya Shah', role: 'Finance Executive', job_position: 'Finance Executive', department: 'Finance', department_name: 'Finance', email: 'maya@peoplepay360.com', phone: '', status: 'Active', type: 'Full Time', employee_type: 'Full Time', joining_date: '2023-04-05' },
+  { id: 5, employee_code: 'EMP-005', first_name: 'Rahul', last_name: 'Mehta', full_name: 'Rahul Mehta', name: 'Rahul Mehta', role: 'Product Designer', job_position: 'Product Designer', department: 'Design', department_name: 'Design', email: 'rahul@peoplepay360.com', phone: '', status: 'Inactive', type: 'Contract', employee_type: 'Contract', joining_date: '2023-05-20' },
+  { id: 6, employee_code: 'EMP-006', first_name: 'Priya', last_name: 'Desai', full_name: 'Priya Desai', name: 'Priya Desai', role: 'QA Engineer', job_position: 'QA Engineer', department: 'Engineering', department_name: 'Engineering', email: 'priya@peoplepay360.com', phone: '', status: 'Active', type: 'Full Time', employee_type: 'Full Time', joining_date: '2023-06-12' },
 ]
 
+// Normalize API employee or mock employee into consistent view model
+const normalizeEmployee = (emp) => {
+  const firstName = emp.first_name || (emp.name ? emp.name.split(' ')[0] : '') || ''
+  const lastName = emp.last_name || (emp.name ? emp.name.split(' ').slice(1).join(' ') : '') || ''
+  const fullName = emp.full_name || (emp.first_name && emp.last_name ? `${emp.first_name} ${emp.last_name}` : emp.name) || 'Unnamed'
+  const departmentName = emp.department_name || emp.department || 'Engineering'
+  const jobPosition = emp.job_position || emp.role || 'Employee'
+  const empType = emp.employee_type || emp.type || 'Full Time'
+  const empStatus = emp.status ? (emp.status.charAt(0).toUpperCase() + emp.status.slice(1).toLowerCase()) : 'Active'
+
+  return {
+    ...emp,
+    id: emp.id,
+    employee_code: emp.employee_code || `EMP-${String(emp.id).padStart(3, '0')}`,
+    first_name: firstName,
+    last_name: lastName,
+    full_name: fullName,
+    name: fullName,
+    department: departmentName,
+    department_name: departmentName,
+    role: jobPosition,
+    job_position: jobPosition,
+    type: empType,
+    employee_type: empType,
+    status: empStatus,
+    email: emp.email || '',
+    phone: emp.phone || '',
+    joining_date: emp.joining_date || emp.joiningDate || '',
+  }
+}
+
 function Employees() {
-  const [employeeList, setEmployeeList] = useState(initialEmployees)
+  const [employeeList, setEmployeeList] = useState(() => initialMockEmployees.map(normalizeEmployee))
+  const [loading, setLoading] = useState(true)
+  const [apiError, setApiError] = useState(null)
+  const [isFallback, setIsFallback] = useState(false)
+
   const [search, setSearch] = useState('')
   const [department, setDepartment] = useState('All Departments')
   const [view, setView] = useState('list')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [actionMenuOpenId, setActionMenuOpenId] = useState(null)
 
   const initialForm = {
     firstName: '',
@@ -32,12 +72,45 @@ function Employees() {
   }
   const [formData, setFormData] = useState(initialForm)
 
+  // Fetch employees from API on mount
+  const fetchEmployees = async () => {
+    setLoading(true)
+    setApiError(null)
+    try {
+      const data = await employeesApi.getAll()
+      if (Array.isArray(data)) {
+        setEmployeeList(data.map(normalizeEmployee))
+        setIsFallback(false)
+      } else if (data && Array.isArray(data.items)) {
+        setEmployeeList(data.items.map(normalizeEmployee))
+        setIsFallback(false)
+      } else {
+        // Fallback to local mock if data is unexpected
+        setEmployeeList(initialMockEmployees.map(normalizeEmployee))
+        setIsFallback(true)
+      }
+    } catch (err) {
+      console.warn('Employees API unavailable, falling back to mock data:', err.message)
+      setApiError(err.message || 'Failed to connect to backend server. Using offline data.')
+      setIsFallback(true)
+      // Keep existing list or ensure initialized with mock
+      setEmployeeList((prev) => (prev.length > 0 ? prev : initialMockEmployees.map(normalizeEmployee)))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchEmployees()
+  }, [])
+
   const filteredEmployees = useMemo(() => {
     return employeeList.filter((employee) => {
       const matchesSearch =
         employee.name.toLowerCase().includes(search.toLowerCase()) ||
         employee.role.toLowerCase().includes(search.toLowerCase()) ||
-        employee.email.toLowerCase().includes(search.toLowerCase())
+        employee.email.toLowerCase().includes(search.toLowerCase()) ||
+        (employee.employee_code && employee.employee_code.toLowerCase().includes(search.toLowerCase()))
 
       const matchesDepartment =
         department === 'All Departments' || employee.department === department
@@ -51,30 +124,124 @@ function Employees() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e) => {
+  const openAddModal = () => {
+    setEditingEmployee(null)
+    setFormData(initialForm)
+    setErrorMsg('')
+    setIsModalOpen(true)
+  }
+
+  const openEditModal = (employee) => {
+    setEditingEmployee(employee)
+    setFormData({
+      firstName: employee.first_name || (employee.name ? employee.name.split(' ')[0] : ''),
+      lastName: employee.last_name || (employee.name ? employee.name.split(' ').slice(1).join(' ') : ''),
+      email: employee.email || '',
+      phone: employee.phone || '',
+      department: employee.department || 'Engineering',
+      role: employee.role || employee.job_position || '',
+      type: employee.type || employee.employee_type || 'Full Time',
+      joiningDate: employee.joining_date || '',
+      status: employee.status || 'Active'
+    })
+    setErrorMsg('')
+    setActionMenuOpenId(null)
+    setIsModalOpen(true)
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorMsg('')
-    
-    // Basic validation
+
+    // Validation
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.role) {
       setErrorMsg('Please fill in all required fields (First Name, Last Name, Email, Position).')
       return
     }
 
-    const newEmployee = {
-      id: Date.now(),
-      name: `${formData.firstName} ${formData.lastName}`,
-      role: formData.role,
-      department: formData.department,
-      email: formData.email,
-      status: formData.status,
-      type: formData.type
+    setSubmitting(true)
+
+    const payload = {
+      first_name: formData.firstName.trim(),
+      last_name: formData.lastName.trim(),
+      email: formData.email.trim(),
+      phone: formData.phone.trim(),
+      department_name: formData.department,
+      job_position: formData.role.trim(),
+      employee_type: formData.type,
+      joining_date: formData.joiningDate || undefined,
+      status: formData.status.toUpperCase(),
     }
 
-    setEmployeeList((prev) => [...prev, newEmployee])
-    setIsModalOpen(false)
-    setFormData(initialForm)
+    if (editingEmployee) {
+      // PATCH /employees/{employee_id}
+      try {
+        const updated = await employeesApi.update(editingEmployee.id, payload)
+        const normalized = normalizeEmployee(updated)
+        setEmployeeList((prev) =>
+          prev.map((emp) => (emp.id === editingEmployee.id ? normalized : emp))
+        )
+        setIsModalOpen(false)
+      } catch (err) {
+        console.warn('API update failed, updating local mock state:', err.message)
+        // Fallback update locally
+        const updatedLocal = normalizeEmployee({
+          ...editingEmployee,
+          ...payload,
+          full_name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+          name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+          role: formData.role.trim(),
+          department: formData.department,
+          type: formData.type,
+          status: formData.status,
+        })
+        setEmployeeList((prev) =>
+          prev.map((emp) => (emp.id === editingEmployee.id ? updatedLocal : emp))
+        )
+        setIsModalOpen(false)
+      } finally {
+        setSubmitting(false)
+      }
+    } else {
+      // POST /employees
+      try {
+        const created = await employeesApi.create(payload)
+        const normalized = normalizeEmployee(created)
+        setEmployeeList((prev) => [normalized, ...prev])
+        setIsModalOpen(false)
+        setFormData(initialForm)
+      } catch (err) {
+        console.warn('API create failed, adding to local mock state:', err.message)
+        // Fallback add locally
+        const newLocalEmp = normalizeEmployee({
+          id: Date.now(),
+          employee_code: `EMP-${Math.floor(100 + Math.random() * 900)}`,
+          first_name: formData.firstName.trim(),
+          last_name: formData.lastName.trim(),
+          full_name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+          name: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+          department_name: formData.department,
+          department: formData.department,
+          job_position: formData.role.trim(),
+          role: formData.role.trim(),
+          employee_type: formData.type,
+          type: formData.type,
+          status: formData.status,
+          joining_date: formData.joiningDate || new Date().toISOString().split('T')[0],
+        })
+        setEmployeeList((prev) => [newLocalEmp, ...prev])
+        setIsModalOpen(false)
+        setFormData(initialForm)
+      } finally {
+        setSubmitting(false)
+      }
+    }
   }
+
+  const { isRole } = useAuth()
+  const canAddEmployee = isRole(ROLES.HR_MANAGER, ROLES.ADMIN)
 
   return (
     <div className="employees-page">
@@ -84,11 +251,34 @@ function Employees() {
           <p>Manage your organization's employees</p>
         </div>
 
-        <button className="primary-button" onClick={() => setIsModalOpen(true)}>
-          <Plus size={18} />
-          Add Employee
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            className="secondary-button"
+            onClick={fetchEmployees}
+            title="Refresh employees list from backend"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={16} className={loading ? 'spin-icon' : ''} />
+            Refresh
+          </button>
+          {canAddEmployee && (
+            <button className="primary-button" onClick={openAddModal}>
+              <Plus size={18} />
+              Add Employee
+            </button>
+          )}
+        </div>
       </div>
+
+      {(apiError || isFallback) && (
+        <div className="api-notice-banner">
+          <AlertCircle size={18} className="notice-icon" />
+          <div className="notice-text">
+            <strong>Backend Connection: </strong>
+            <span>{apiError ? `${apiError}. ` : ''}Operating in fallback demo mode.</span>
+          </div>
+        </div>
+      )}
 
       <div className="employees-toolbar">
         <div className="search-box">
@@ -130,7 +320,12 @@ function Employees() {
         </div>
       </div>
 
-      {view === 'list' ? (
+      {loading && employeeList.length === 0 ? (
+        <div className="loading-state-card">
+          <Loader2 size={32} className="spin-icon" />
+          <p>Loading employees from server...</p>
+        </div>
+      ) : view === 'list' ? (
         <div className="employees-table-card">
           <table>
             <thead>
@@ -140,7 +335,7 @@ function Employees() {
                 <th>Position</th>
                 <th>Type</th>
                 <th>Status</th>
-                <th />
+                <th>Actions</th>
               </tr>
             </thead>
 
@@ -153,7 +348,8 @@ function Employees() {
                         {employee.name
                           .split(' ')
                           .map((part) => part[0])
-                          .join('')}
+                          .join('')
+                          .slice(0, 2)}
                       </div>
                       <div>
                         <strong>{employee.name}</strong>
@@ -172,10 +368,28 @@ function Employees() {
                     </span>
                   </td>
 
-                  <td>
-                    <button className="icon-button" aria-label="Employee actions">
+                  <td style={{ position: 'relative' }}>
+                    <button
+                      className="icon-button"
+                      aria-label="Employee actions"
+                      onClick={() =>
+                        setActionMenuOpenId(actionMenuOpenId === employee.id ? null : employee.id)
+                      }
+                    >
                       <MoreHorizontal size={18} />
                     </button>
+
+                    {actionMenuOpenId === employee.id && (
+                      <div className="actions-dropdown-menu">
+                        <button
+                          type="button"
+                          className="dropdown-menu-item"
+                          onClick={() => openEditModal(employee)}
+                        >
+                          <Edit2 size={14} /> Edit Employee
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -195,11 +409,30 @@ function Employees() {
                   {employee.name
                     .split(' ')
                     .map((part) => part[0])
-                    .join('')}
+                    .join('')
+                    .slice(0, 2)}
                 </div>
-                <button className="icon-button">
-                  <MoreHorizontal size={18} />
-                </button>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className="icon-button"
+                    onClick={() =>
+                      setActionMenuOpenId(actionMenuOpenId === employee.id ? null : employee.id)
+                    }
+                  >
+                    <MoreHorizontal size={18} />
+                  </button>
+                  {actionMenuOpenId === employee.id && (
+                    <div className="actions-dropdown-menu">
+                      <button
+                        type="button"
+                        className="dropdown-menu-item"
+                        onClick={() => openEditModal(employee)}
+                      >
+                        <Edit2 size={14} /> Edit Employee
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <h3>{employee.name}</h3>
@@ -219,38 +452,67 @@ function Employees() {
       )}
 
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2>Add New Employee</h2>
+        <div className="modal-overlay" onClick={() => !submitting && setIsModalOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>{editingEmployee ? 'Edit Employee' : 'Add New Employee'}</h2>
             {errorMsg && <div className="modal-error">{errorMsg}</div>}
-            
+
             <form onSubmit={handleSubmit} className="employee-form">
               <div className="form-row">
                 <div className="form-group">
                   <label>First Name *</label>
-                  <input type="text" name="firstName" value={formData.firstName} onChange={handleInputChange} />
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Last Name *</label>
-                  <input type="text" name="lastName" value={formData.lastName} onChange={handleInputChange} />
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  />
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Email *</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleInputChange} />
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Phone</label>
-                  <input type="text" name="phone" value={formData.phone} onChange={handleInputChange} />
+                  <input
+                    type="text"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  />
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Department</label>
-                  <select name="department" value={formData.department} onChange={handleInputChange}>
+                  <select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  >
                     <option>Human Resources</option>
                     <option>Engineering</option>
                     <option>Finance</option>
@@ -259,14 +521,25 @@ function Employees() {
                 </div>
                 <div className="form-group">
                   <label>Job Position *</label>
-                  <input type="text" name="role" value={formData.role} onChange={handleInputChange} />
+                  <input
+                    type="text"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  />
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Employee Type</label>
-                  <select name="type" value={formData.type} onChange={handleInputChange}>
+                  <select
+                    name="type"
+                    value={formData.type}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  >
                     <option>Full Time</option>
                     <option>Part Time</option>
                     <option>Contract</option>
@@ -274,14 +547,25 @@ function Employees() {
                 </div>
                 <div className="form-group">
                   <label>Joining Date</label>
-                  <input type="date" name="joiningDate" value={formData.joiningDate} onChange={handleInputChange} />
+                  <input
+                    type="date"
+                    name="joiningDate"
+                    value={formData.joiningDate}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  />
                 </div>
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Status</label>
-                  <select name="status" value={formData.status} onChange={handleInputChange}>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleInputChange}
+                    disabled={submitting}
+                  >
                     <option>Active</option>
                     <option>Inactive</option>
                   </select>
@@ -289,11 +573,17 @@ function Employees() {
               </div>
 
               <div className="modal-actions">
-                <button type="button" className="secondary-button" onClick={() => setIsModalOpen(false)}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setIsModalOpen(false)}
+                  disabled={submitting}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="primary-button">
-                  Add Employee
+                <button type="submit" className="primary-button" disabled={submitting}>
+                  {submitting && <Loader2 size={16} className="spin-icon" style={{ marginRight: '6px' }} />}
+                  {editingEmployee ? 'Save Changes' : 'Add Employee'}
                 </button>
               </div>
             </form>
