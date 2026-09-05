@@ -3,7 +3,7 @@ import { Search, Plus, MoreHorizontal, Mail, LayoutGrid, List } from 'lucide-rea
 import './Employees.css'
 
 const initialEmployees = [
-  { id: 1, name: 'Rishika Patel', role: 'HR Manager', department: 'Human Resources', email: 'rishika@peoplepay360.com', status: 'Active', type: 'Full Time' },
+  { id: 1, name: 'Rishika Giri', role: 'HR Manager', department: 'Human Resources', email: 'rishika@peoplepay360.com', status: 'Active', type: 'Full Time' },
   { id: 2, name: 'Chit Brahmbhatt', role: 'Software Engineer', department: 'Engineering', email: 'chit@peoplepay360.com', status: 'Active', type: 'Full Time' },
   { id: 3, name: 'Ansh Vaghela', role: 'Frontend Developer', department: 'Engineering', email: 'ansh@peoplepay360.com', status: 'Active', type: 'Full Time' },
   { id: 4, name: 'Maya Shah', role: 'Finance Executive', department: 'Finance', email: 'maya@peoplepay360.com', status: 'Active', type: 'Full Time' },

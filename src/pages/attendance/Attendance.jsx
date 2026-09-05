@@ -3,7 +3,7 @@ import { Search, Plus, MoreHorizontal } from 'lucide-react'
 import './Attendance.css'
 
 const attendanceData = [
-  { attendance_id: 'A-001', employee_id: 'E-001', employeeName: 'Rishika Patel', email: 'rishika@peoplepay360.com', date: '2023-10-01', checkIn: '08:55 AM', checkOut: '05:05 PM', workedHours: '8h 10m', status: 'PRESENT' },
+  { attendance_id: 'A-001', employee_id: 'E-001', employeeName: 'Rishika Giri', email: 'rishika@peoplepay360.com', date: '2023-10-01', checkIn: '08:55 AM', checkOut: '05:05 PM', workedHours: '8h 10m', status: 'PRESENT' },
   { attendance_id: 'A-002', employee_id: 'E-002', employeeName: 'Chit Brahmbhatt', email: 'chit@peoplepay360.com', date: '2023-10-01', checkIn: '09:15 AM', checkOut: '06:00 PM', workedHours: '8h 45m', status: 'LATE' },
   { attendance_id: 'A-003', employee_id: 'E-003', employeeName: 'Ansh Vaghela', email: 'ansh@peoplepay360.com', date: '2023-10-01', checkIn: '--', checkOut: '--', workedHours: '0h 0m', status: 'ABSENT' },
   { attendance_id: 'A-004', employee_id: 'E-005', employeeName: 'Rahul Mehta', email: 'rahul@peoplepay360.com', date: '2023-10-01', checkIn: '08:00 AM', checkOut: '07:30 PM', workedHours: '11h 30m', status: 'OVERTIME' },
