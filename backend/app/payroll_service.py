@@ -13,8 +13,17 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.payroll_hr_client import ActiveContractProvider, HRClientError
-from app.payroll_engine import CalculationInput, PayrollEngineError, calculate_payslip
+from app.payroll_hr_client import (
+    ActiveContractProvider,
+    HRClientError,
+)
+
+from app.payroll_engine import (
+    CalculationInput,
+    PayrollEngineError,
+    calculate_payslip,
+)
+
 from app.payroll_models import (
     Payrun,
     PayrunStatus,
@@ -36,7 +45,6 @@ class PayrollServiceError(Exception):
 class PayrunNotFoundError(PayrollServiceError):
 
     def __init__(self, payrun_id: UUID):
-
         self.payrun_id = payrun_id
 
         super().__init__(
@@ -47,7 +55,6 @@ class PayrunNotFoundError(PayrollServiceError):
 class PayslipNotFoundError(PayrollServiceError):
 
     def __init__(self, payslip_id: UUID):
-
         self.payslip_id = payslip_id
 
         super().__init__(
@@ -55,15 +62,12 @@ class PayslipNotFoundError(PayrollServiceError):
         )
 
 
-class SalaryStructureNotFoundError(
-    PayrollServiceError
-):
+class SalaryStructureNotFoundError(PayrollServiceError):
 
     def __init__(
         self,
         structure_id: UUID
     ):
-
         self.structure_id = structure_id
 
         super().__init__(
@@ -71,15 +75,12 @@ class SalaryStructureNotFoundError(
         )
 
 
-class SalaryStructureInactiveError(
-    PayrollServiceError
-):
+class SalaryStructureInactiveError(PayrollServiceError):
 
     def __init__(
         self,
         structure_id: UUID
     ):
-
         self.structure_id = structure_id
 
         super().__init__(
@@ -87,25 +88,20 @@ class SalaryStructureInactiveError(
         )
 
 
-class InvalidPeriodError(
-    PayrollServiceError
-):
+class InvalidPeriodError(PayrollServiceError):
 
     def __init__(
         self,
         period_start: date,
         period_end: date
     ):
-
         super().__init__(
             f"period_end ({period_end}) must not be "
             f"before period_start ({period_start})"
         )
 
 
-class InvalidPayrunStateError(
-    PayrollServiceError
-):
+class InvalidPayrunStateError(PayrollServiceError):
 
     def __init__(
         self,
@@ -114,32 +110,24 @@ class InvalidPayrunStateError(
         action: str,
         detail: str = "",
     ):
-
         self.payrun_id = payrun_id
-
         self.current_status = current_status
-
         self.action = action
 
         message = (
             f"Cannot {action} payrun {payrun_id}: "
-            f"current status is "
-            f"{current_status.value}."
+            f"current status is {current_status.value}."
         )
 
         if detail:
-
             message += f" {detail}"
 
         super().__init__(message)
 
 
-class EmptyEmployeeListError(
-    PayrollServiceError
-):
+class EmptyEmployeeListError(PayrollServiceError):
 
     def __init__(self):
-
         super().__init__(
             "employee_ids is required to compute "
             "a payrun and must not be empty"
@@ -154,7 +142,6 @@ def _default_worked_days(
     period_start: date,
     period_end: date,
 ) -> Decimal:
-
     """
     Temporary implementation.
 
@@ -181,11 +168,7 @@ def create_payrun(
     payload,
 ) -> Payrun:
 
-    if (
-        payload.period_end
-        < payload.period_start
-    ):
-
+    if payload.period_end < payload.period_start:
         raise InvalidPeriodError(
             payload.period_start,
             payload.period_end,
@@ -197,43 +180,30 @@ def create_payrun(
     )
 
     if structure is None:
-
         raise SalaryStructureNotFoundError(
             payload.salary_structure_id
         )
 
     if not structure.is_active:
-
         raise SalaryStructureInactiveError(
             payload.salary_structure_id
         )
 
     payrun = Payrun(
-
         name=payload.name,
-
-        salary_structure_id=
-        payload.salary_structure_id,
-
-        period_start=
-        payload.period_start,
-
-        period_end=
-        payload.period_end,
-
+        salary_structure_id=payload.salary_structure_id,
+        period_start=payload.period_start,
+        period_end=payload.period_end,
         employee_ids=[
             str(employee_id)
             for employee_id
             in payload.employee_ids
         ],
-
         status=PayrunStatus.DRAFT,
     )
 
     db.add(payrun)
-
     db.commit()
-
     db.refresh(payrun)
 
     return payrun
@@ -248,17 +218,12 @@ def list_payruns(
 ) -> list[Payrun]:
 
     return list(
-
         db.scalars(
-
             select(Payrun)
-
             .order_by(
                 Payrun.created_at.desc()
             )
-
         ).all()
-
     )
 
 
@@ -277,7 +242,6 @@ def get_payrun(
     )
 
     if payrun is None:
-
         raise PayrunNotFoundError(
             payrun_id
         )
@@ -314,7 +278,6 @@ def compute_payrun(
     )
 
     if payrun is None:
-
         raise PayrunNotFoundError(
             payrun_id
         )
@@ -327,17 +290,11 @@ def compute_payrun(
         payrun.status
         != PayrunStatus.DRAFT
     ):
-
         raise InvalidPayrunStateError(
-
             payrun_id,
-
             payrun.status,
-
             "compute",
-
             "Only DRAFT payruns can be computed.",
-
         )
 
     # --------------------------------------------------------
@@ -345,7 +302,6 @@ def compute_payrun(
     # --------------------------------------------------------
 
     if not employee_ids:
-
         raise EmptyEmployeeListError()
 
     # --------------------------------------------------------
@@ -353,27 +309,18 @@ def compute_payrun(
     # --------------------------------------------------------
 
     structure = db.get(
-
         SalaryStructure,
-
         payrun.salary_structure_id,
-
     )
 
     if structure is None:
-
         raise SalaryStructureNotFoundError(
-
             payrun.salary_structure_id
-
         )
 
     if not structure.is_active:
-
         raise SalaryStructureInactiveError(
-
             payrun.salary_structure_id
-
         )
 
     # --------------------------------------------------------
@@ -381,36 +328,23 @@ def compute_payrun(
     # --------------------------------------------------------
 
     rules = list(
-
         db.scalars(
-
             select(SalaryRule)
-
             .where(
-
                 SalaryRule.structure_id
                 == structure.id,
 
                 SalaryRule.is_active.is_(True),
-
             )
-
             .order_by(
-
                 SalaryRule.sequence.asc()
-
             )
-
         ).all()
-
     )
 
     rules_by_code = {
-
         rule.code: rule
-
         for rule in rules
-
     }
 
     # --------------------------------------------------------
@@ -418,11 +352,8 @@ def compute_payrun(
     # --------------------------------------------------------
 
     worked_days_overrides = (
-
         worked_days_overrides
-
         or {}
-
     )
 
     warnings: list[str] = []
@@ -445,13 +376,9 @@ def compute_payrun(
 
             contract = (
                 hr_client.get_active_contract(
-
                     employee_id,
-
                     payrun.period_start,
-
                     payrun.period_end,
-
                 )
             )
 
@@ -462,10 +389,8 @@ def compute_payrun(
             if contract is None:
 
                 warnings.append(
-
                     f"No active contract found for "
                     f"employee {employee_id}; skipped."
-
                 )
 
                 savepoint.rollback()
@@ -477,22 +402,17 @@ def compute_payrun(
             # ------------------------------------------------
 
             worked_days = (
-
                 worked_days_overrides.get(
                     employee_id
                 )
-
             )
 
             if worked_days is None:
 
                 worked_days = (
                     _default_worked_days(
-
                         payrun.period_start,
-
                         payrun.period_end,
-
                     )
                 )
 
@@ -501,9 +421,7 @@ def compute_payrun(
             # ------------------------------------------------
 
             contract_wage = Decimal(
-
                 str(contract.wage)
-
             )
 
             # ------------------------------------------------
@@ -511,32 +429,15 @@ def compute_payrun(
             # ------------------------------------------------
 
             calc_input = CalculationInput(
-
-                structure_id=
-                structure.id,
-
-                employee_id=
-                employee_id,
-
-                contract_id=
-                contract.id,
-
-                period_start=
-                payrun.period_start,
-
-                period_end=
-                payrun.period_end,
-
-                worked_days=
-                worked_days,
-
+                structure_id=structure.id,
+                employee_id=employee_id,
+                contract_id=contract.id,
+                period_start=payrun.period_start,
+                period_end=payrun.period_end,
+                worked_days=worked_days,
                 base_inputs={
-
-                    "BASIC":
-                    contract_wage
-
+                    "BASIC": contract_wage
                 },
-
             )
 
             # ------------------------------------------------
@@ -544,11 +445,8 @@ def compute_payrun(
             # ------------------------------------------------
 
             result = calculate_payslip(
-
                 rules,
-
                 calc_input,
-
             )
 
             # ------------------------------------------------
@@ -556,26 +454,19 @@ def compute_payrun(
             # ------------------------------------------------
 
             gross_salary = (
-
                 result.gross_salary
-
             )
 
             total_deductions = (
-
                 result.total_deductions
-
             )
 
             net_salary = (
-
                 result.net_salary
-
             )
 
             # ------------------------------------------------
             # FALLBACK:
-            #
             # If no active salary rules exist,
             # use contract wage directly.
             # ------------------------------------------------
@@ -597,12 +488,10 @@ def compute_payrun(
                 )
 
                 warnings.append(
-
                     f"No active salary rules found "
                     f"for employee {employee_id}. "
                     f"Contract wage was used as "
                     f"BASIC salary."
-
                 )
 
             # ------------------------------------------------
@@ -610,34 +499,15 @@ def compute_payrun(
             # ------------------------------------------------
 
             payslip = Payslip(
-
-                payrun_id=
-                payrun.id,
-
-                employee_id=
-                employee_id,
-
-                contract_id=
-                contract.id,
-
-                salary_structure_id=
-                structure.id,
-
-                worked_days=
-                worked_days,
-
-                gross_salary=
-                gross_salary,
-
-                total_deductions=
-                total_deductions,
-
-                net_salary=
-                net_salary,
-
-                status=
-                PayrunStatus.COMPUTED,
-
+                payrun_id=payrun.id,
+                employee_id=employee_id,
+                contract_id=contract.id,
+                salary_structure_id=structure.id,
+                worked_days=worked_days,
+                gross_salary=gross_salary,
+                total_deductions=total_deductions,
+                net_salary=net_salary,
+                status=PayrunStatus.COMPUTED,
             )
 
             db.add(
@@ -661,33 +531,17 @@ def compute_payrun(
                 )
 
                 if rule is None:
-
                     continue
 
                 payslip_line = (
                     PayslipLine(
-
-                        payslip_id=
-                        payslip.id,
-
-                        rule_id=
-                        rule.id,
-
-                        code=
-                        line.code,
-
-                        name=
-                        line.name,
-
-                        category=
-                        line.category,
-
-                        sequence=
-                        line.sequence,
-
-                        amount=
-                        line.amount,
-
+                        payslip_id=payslip.id,
+                        rule_id=rule.id,
+                        code=line.code,
+                        name=line.name,
+                        category=line.category,
+                        sequence=line.sequence,
+                        amount=line.amount,
                     )
                 )
 
@@ -706,10 +560,8 @@ def compute_payrun(
             savepoint.rollback()
 
             warnings.append(
-
                 f"HR lookup failed for employee "
                 f"{employee_id}: {exc}"
-
             )
 
         # ----------------------------------------------------
@@ -721,10 +573,8 @@ def compute_payrun(
             savepoint.rollback()
 
             warnings.append(
-
                 f"Calculation failed for employee "
                 f"{employee_id}: {exc}"
-
             )
 
         # ----------------------------------------------------
@@ -736,11 +586,9 @@ def compute_payrun(
             savepoint.rollback()
 
             warnings.append(
-
                 f"Payslip already exists for "
                 f"employee {employee_id} "
                 f"in this payrun; skipped."
-
             )
 
         # ----------------------------------------------------
@@ -766,10 +614,8 @@ def compute_payrun(
     else:
 
         warnings.append(
-
             "No payslips could be computed; "
             "payrun remains DRAFT."
-
         )
 
     # ========================================================
@@ -783,13 +629,9 @@ def compute_payrun(
     )
 
     return (
-
         payrun,
-
         payslip_count,
-
         warnings,
-
     )
 
 
@@ -806,37 +648,25 @@ def validate_payrun(
 ) -> Payrun:
 
     payrun = db.get(
-
         Payrun,
-
         payrun_id,
-
     )
 
     if payrun is None:
-
         raise PayrunNotFoundError(
             payrun_id
         )
 
     if (
-
         payrun.status
         != PayrunStatus.COMPUTED
-
     ):
-
         raise InvalidPayrunStateError(
-
             payrun_id,
-
             payrun.status,
-
             "validate",
-
             "Only COMPUTED payruns "
             "can be validated.",
-
         )
 
     payrun.status = (
@@ -865,37 +695,25 @@ def mark_payrun_paid(
 ) -> Payrun:
 
     payrun = db.get(
-
         Payrun,
-
         payrun_id,
-
     )
 
     if payrun is None:
-
         raise PayrunNotFoundError(
             payrun_id
         )
 
     if (
-
         payrun.status
         != PayrunStatus.VALIDATED
-
     ):
-
         raise InvalidPayrunStateError(
-
             payrun_id,
-
             payrun.status,
-
             "mark-paid",
-
             "Only VALIDATED payruns "
             "can be marked PAID.",
-
         )
 
     payrun.status = (
@@ -924,15 +742,11 @@ def get_payslip(
 ) -> Payslip:
 
     payslip = db.get(
-
         Payslip,
-
         payslip_id,
-
     )
 
     if payslip is None:
-
         raise PayslipNotFoundError(
             payslip_id
         )
@@ -953,20 +767,13 @@ def list_payslips_for_payrun(
 ) -> list[Payslip]:
 
     return list(
-
         db.scalars(
-
             select(Payslip)
-
             .where(
-
                 Payslip.payrun_id
                 == payrun_id
-
             )
-
         ).all()
-
     )
 
 
@@ -983,26 +790,14 @@ def get_payslip_lines(
 ) -> list[PayslipLine]:
 
     return list(
-
         db.scalars(
-
             select(PayslipLine)
-
             .where(
-
                 PayslipLine.payslip_id
                 == payslip_id
-
             )
-
             .order_by(
-
                 PayslipLine.sequence.asc()
-
             )
-
         ).all()
-
     )
-
-
