@@ -3,9 +3,9 @@ import uuid
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from backend.app.database import get_db
-from backend.app.employees import service
-from backend.app.employees.schema import (
+from app.database import get_db
+from app.employees import service
+from app.employees.schema import (
     EmployeeCreate,
     EmployeeUpdate,
     EmployeeResponse,
@@ -116,3 +116,4 @@ def update_employee(
         "success": True,
         "data": EmployeeResponse.model_validate(employee),
     }
+

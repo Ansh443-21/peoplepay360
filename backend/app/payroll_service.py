@@ -13,24 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-<<<<<<< HEAD
-from backend.app.payroll_hr_client import (
-    ActiveContractProvider,
-    HRClientError,
-)
-
-from backend.app.payroll_engine import (
-    CalculationInput,
-    PayrollEngineError,
-    calculate_payslip,
-)
-
-from backend.app.payroll_models import (
-=======
 from app.payroll_hr_client import ActiveContractProvider, HRClientError
 from app.payroll_engine import CalculationInput, PayrollEngineError, calculate_payslip
 from app.payroll_models import (
->>>>>>> a3dec71a3dfb44674851b8da18cd71c90796f2be
     Payrun,
     PayrunStatus,
     Payslip,
@@ -1019,3 +1004,5 @@ def get_payslip_lines(
         ).all()
 
     )
+
+
