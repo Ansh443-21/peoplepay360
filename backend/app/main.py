@@ -1,18 +1,23 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.database import Base, engine
+from app.database import Base, engine
 
-from backend.app.employees.model import Employee
-from backend.app.employees.router import router as employees_router
+from app.employees.model import Employee
+from app.employees.router import router as employees_router
 
-from backend.app.schedules.router import router as schedules_router
+from app.schedules.router import router as schedules_router
 
-from backend.app.contracts.router import (
+from app.contracts.router import (
     router as contracts_router,
     active_contract_router,
 )
 
-from backend.app.payroll_routes import router as payroll_router
+from app.payroll_routes import router as payroll_router
+
+from app.attendance_routes import router as attendance_router
+from app.time_off_routes import router as time_off_router
+from app.auth_routes import router as auth_router
 
 
 app = FastAPI(
@@ -21,9 +26,33 @@ app = FastAPI(
 )
 
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://peoplepay360.vercel.app",
+        "https://peoplepay360-frontend.vercel.app",
+        "https://peoplepay360-frontend-ic5daiq2t-ansh443-21.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+    ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
 @app.on_event("startup")
 def create_tables():
     Base.metadata.create_all(bind=engine)
+    try:
+        try:
+            from scripts.seed_auth import seed
+        except ImportError:
+            from backend.scripts.seed_auth import seed
+        seed()
+    except Exception as exc:
+        print(f"Startup auth seed notice: {exc}")
 
 
 @app.get("/")
@@ -51,3 +80,6 @@ app.include_router(schedules_router)
 app.include_router(contracts_router)
 app.include_router(active_contract_router)
 app.include_router(payroll_router)
+app.include_router(attendance_router)
+app.include_router(time_off_router)
+app.include_router(auth_router)

@@ -10,10 +10,10 @@ from uuid import uuid4
 
 import pytest
 
-from backend.app.payroll_models import ComputationType
-from backend.app.payroll_engine.context import CalculationInput
-from backend.app.payroll_engine.engine import calculate_payslip
-from backend.app.payroll_engine.exceptions import (
+from app.payroll_models import ComputationType
+from app.payroll_engine.context import CalculationInput
+from app.payroll_engine.engine import calculate_payslip
+from app.payroll_engine.exceptions import (
     MissingPercentageBaseError,
     UnknownFormulaVariableError,
     UnsafeFormulaError,
@@ -63,8 +63,13 @@ def make_input(base_inputs=None, worked_days=Decimal("30")):
 
 def test_fixed_rule():
     rules = [
-        make_rule("ALLOWANCE", "Allowance", 10, ComputationType.FIXED,
-                   fixed_amount=Decimal("2000.00")),
+        make_rule(
+            "ALLOWANCE",
+            "Allowance",
+            10,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("2000.00"),
+        ),
     ]
     result = calculate_payslip(rules, make_input())
     assert result.lines[0].amount == Decimal("2000.00")
@@ -77,8 +82,14 @@ def test_fixed_rule():
 
 def test_percentage_based_on_basic():
     rules = [
-        make_rule("HRA", "House Rent Allowance", 20, ComputationType.PERCENTAGE,
-                   percentage=Decimal("20.00"), formula="BASIC"),
+        make_rule(
+            "HRA",
+            "House Rent Allowance",
+            20,
+            ComputationType.PERCENTAGE,
+            percentage=Decimal("20.00"),
+            formula="BASIC",
+        )
     ]
     calc_input = make_input(base_inputs={"BASIC": Decimal("50000.00")})
     result = calculate_payslip(rules, calc_input)
@@ -91,19 +102,45 @@ def test_percentage_based_on_basic():
 
 def test_multiple_sequential_rules_full_payslip():
     rules = [
-        make_rule("BASIC", "Basic Pay", 10, ComputationType.FIXED,
-                   fixed_amount=Decimal("50000.00"), category_code="EARNING"),
-        make_rule("HRA", "HRA", 20, ComputationType.PERCENTAGE,
-                   percentage=Decimal("20.00"), formula="BASIC", category_code="EARNING"),
-        make_rule("ALLOWANCE", "Allowance", 30, ComputationType.FIXED,
-                   fixed_amount=Decimal("2000.00"), category_code="EARNING"),
-        make_rule("PF", "Provident Fund", 40, ComputationType.PERCENTAGE,
-                   percentage=Decimal("12.00"), formula="BASIC", category_code="PF"),
+        make_rule(
+            "BASIC",
+            "Basic Pay",
+            10,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("50000.00"),
+            category_code="EARNING",
+        ),
+        make_rule(
+            "HRA",
+            "HRA",
+            20,
+            ComputationType.PERCENTAGE,
+            percentage=Decimal("20.00"),
+            formula="BASIC",
+            category_code="EARNING",
+        ),
+        make_rule(
+            "ALLOWANCE",
+            "Allowance",
+            30,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("2000.00"),
+            category_code="EARNING",
+        ),
+        make_rule(
+            "PF",
+            "Provident Fund",
+            40,
+            ComputationType.PERCENTAGE,
+            percentage=Decimal("12.00"),
+            formula="BASIC",
+            category_code="PF",
+        ),
     ]
     result = calculate_payslip(rules, make_input())
 
-    assert result.gross_salary == Decimal("62000.00")       # 50000 + 10000 + 2000
-    assert result.total_deductions == Decimal("6000.00")     # 12% of 50000
+    assert result.gross_salary == Decimal("62000.00")
+    assert result.total_deductions == Decimal("6000.00")
     assert result.net_salary == Decimal("56000.00")
 
 
@@ -113,15 +150,31 @@ def test_multiple_sequential_rules_full_payslip():
 
 def test_formula_using_prior_rule_codes():
     rules = [
-        make_rule("BASIC", "Basic Pay", 10, ComputationType.FIXED,
-                   fixed_amount=Decimal("50000.00")),
-        make_rule("HRA", "HRA", 20, ComputationType.PERCENTAGE,
-                   percentage=Decimal("20.00"), formula="BASIC"),
-        make_rule("SPECIAL", "Special Allowance", 30, ComputationType.FORMULA,
-                   formula="(BASIC + HRA) * 0.1"),
+        make_rule(
+            "BASIC",
+            "Basic Pay",
+            10,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("50000.00"),
+        ),
+        make_rule(
+            "HRA",
+            "HRA",
+            20,
+            ComputationType.PERCENTAGE,
+            percentage=Decimal("20.00"),
+            formula="BASIC",
+        ),
+        make_rule(
+            "SPECIAL",
+            "Special Allowance",
+            30,
+            ComputationType.FORMULA,
+            formula="(BASIC + HRA) * 0.1",
+        ),
     ]
     result = calculate_payslip(rules, make_input())
-    # (50000 + 10000) * 0.1 = 6000.00
+
     special_line = next(l for l in result.lines if l.code == "SPECIAL")
     assert special_line.amount == Decimal("6000.00")
 
@@ -132,8 +185,14 @@ def test_formula_using_prior_rule_codes():
 
 def test_missing_percentage_base_raises():
     rules = [
-        make_rule("HRA", "HRA", 10, ComputationType.PERCENTAGE,
-                   percentage=Decimal("20.00"), formula="BASIC"),
+        make_rule(
+            "HRA",
+            "HRA",
+            10,
+            ComputationType.PERCENTAGE,
+            percentage=Decimal("20.00"),
+            formula="BASIC",
+        ),
     ]
     with pytest.raises(MissingPercentageBaseError):
         calculate_payslip(rules, make_input(base_inputs={}))
@@ -145,8 +204,13 @@ def test_missing_percentage_base_raises():
 
 def test_unknown_formula_variable_raises():
     rules = [
-        make_rule("BONUS", "Bonus", 10, ComputationType.FORMULA,
-                   formula="NON_EXISTENT * 2"),
+        make_rule(
+            "BONUS",
+            "Bonus",
+            10,
+            ComputationType.FORMULA,
+            formula="NON_EXISTENT * 2",
+        ),
     ]
     with pytest.raises(UnknownFormulaVariableError):
         calculate_payslip(rules, make_input())
@@ -170,10 +234,20 @@ def test_unknown_formula_variable_raises():
 )
 def test_unsafe_formula_rejected(formula):
     rules = [
-        make_rule("BASIC", "Basic Pay", 10, ComputationType.FIXED,
-                   fixed_amount=Decimal("50000.00")),
-        make_rule("HACK", "Hack Attempt", 20, ComputationType.FORMULA,
-                   formula=formula),
+        make_rule(
+            "BASIC",
+            "Basic Pay",
+            10,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("50000.00"),
+        ),
+        make_rule(
+            "HACK",
+            "Hack Attempt",
+            20,
+            ComputationType.FORMULA,
+            formula=formula,
+        ),
     ]
     with pytest.raises(UnsafeFormulaError):
         calculate_payslip(rules, make_input())
@@ -185,14 +259,33 @@ def test_unsafe_formula_rejected(formula):
 
 def test_earnings_deductions_aggregation():
     rules = [
-        make_rule("BASIC", "Basic Pay", 10, ComputationType.FIXED,
-                   fixed_amount=Decimal("30000.00"), category_code="EARNING"),
-        make_rule("TAX", "Income Tax", 20, ComputationType.FIXED,
-                   fixed_amount=Decimal("3000.00"), category_code="TAX"),
-        make_rule("DED_MISC", "Misc Deduction", 30, ComputationType.FIXED,
-                   fixed_amount=Decimal("500.00"), category_code="DEDUCTION"),
+        make_rule(
+            "BASIC",
+            "Basic Pay",
+            10,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("30000.00"),
+            category_code="EARNING",
+        ),
+        make_rule(
+            "TAX",
+            "Income Tax",
+            20,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("3000.00"),
+            category_code="TAX",
+        ),
+        make_rule(
+            "DED_MISC",
+            "Misc Deduction",
+            30,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("500.00"),
+            category_code="DEDUCTION",
+        ),
     ]
     result = calculate_payslip(rules, make_input())
+
     assert result.gross_salary == Decimal("30000.00")
     assert result.total_deductions == Decimal("3500.00")
     assert result.net_salary == Decimal("26500.00")
@@ -204,18 +297,27 @@ def test_earnings_deductions_aggregation():
 
 def test_decimal_rounding_half_up():
     rules = [
-        make_rule("BASIC", "Basic Pay", 10, ComputationType.FIXED,
-                   fixed_amount=Decimal("10000.005")),
-        make_rule("HRA", "HRA", 20, ComputationType.PERCENTAGE,
-                   percentage=Decimal("33.335"), formula="BASIC"),
+        make_rule(
+            "BASIC",
+            "Basic Pay",
+            10,
+            ComputationType.FIXED,
+            fixed_amount=Decimal("10000.005"),
+        ),
+        make_rule(
+            "HRA",
+            "HRA",
+            20,
+            ComputationType.PERCENTAGE,
+            percentage=Decimal("33.335"),
+            formula="BASIC",
+        ),
     ]
     result = calculate_payslip(rules, make_input())
 
     basic_line = next(l for l in result.lines if l.code == "BASIC")
     hra_line = next(l for l in result.lines if l.code == "HRA")
 
-    # 10000.005 -> rounds half up to 10000.01
     assert basic_line.amount == Decimal("10000.01")
-    # 33.335% of 10000.01 = 3333.5033335 -> rounds to 3333.50
     assert hra_line.amount == Decimal("3333.50")
     assert result.gross_salary == basic_line.amount + hra_line.amount

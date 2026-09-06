@@ -11,20 +11,20 @@ appear inside this module.
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from backend.app.payroll_models import ComputationType
-from backend.app.payroll_engine.context import (
+from app.payroll_models import ComputationType
+from app.payroll_engine.context import (
     CalculationContext,
     CalculationInput,
     CalculationResult,
     PayslipLineResult,
 )
-from backend.app.payroll_engine.exceptions import (
+from app.payroll_engine.exceptions import (
     DuplicateRuleCodeError,
     InvalidPayrollPeriodError,
     InvalidRuleError,
     NegativeValueError,
 )
-from backend.app.payroll_engine.resolvers import resolve_fixed, resolve_formula, resolve_percentage
+from app.payroll_engine.resolvers import resolve_fixed, resolve_formula, resolve_percentage
 
 _CENTS = Decimal("0.01")
 

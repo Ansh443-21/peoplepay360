@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from backend.app.database import get_db
 from backend.app.employees import service
-
 from backend.app.employees.schema import (
     EmployeeCreate,
     EmployeeUpdate,
@@ -14,24 +13,36 @@ from backend.app.employees.schema import (
     EmployeeListResponse,
 )
 
+
 router = APIRouter(
     prefix="/api/v1/employees",
     tags=["employees"],
 )
 
 
+# ---------------------------------------------------------
+# CREATE EMPLOYEE
+# ---------------------------------------------------------
+
 @router.post("/", response_model=EmployeeSingleResponse)
 def create_employee(
     payload: EmployeeCreate,
     db: Session = Depends(get_db),
 ):
-    employee = service.create_employee(db, payload)
+    employee = service.create_employee(
+        db,
+        payload,
+    )
 
     return {
         "success": True,
         "data": EmployeeResponse.model_validate(employee),
     }
 
+
+# ---------------------------------------------------------
+# LIST EMPLOYEES
+# ---------------------------------------------------------
 
 @router.get("/", response_model=EmployeeListResponse)
 def list_employees(
@@ -59,6 +70,10 @@ def list_employees(
     }
 
 
+# ---------------------------------------------------------
+# GET EMPLOYEE BY ID
+# ---------------------------------------------------------
+
 @router.get(
     "/{employee_id}",
     response_model=EmployeeSingleResponse,
@@ -77,6 +92,10 @@ def get_employee(
         "data": EmployeeResponse.model_validate(employee),
     }
 
+
+# ---------------------------------------------------------
+# UPDATE EMPLOYEE
+# ---------------------------------------------------------
 
 @router.patch(
     "/{employee_id}",

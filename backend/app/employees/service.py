@@ -4,8 +4,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from backend.app.employees.model import Employee
-from backend.app.employees.schema import EmployeeCreate, EmployeeUpdate
+from app.employees.model import Employee
+from app.employees.schema import EmployeeCreate, EmployeeUpdate
 
 
 # ---------------------------------------------------------

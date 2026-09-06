@@ -4,8 +4,8 @@ from fastapi import HTTPException, status
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from backend.app.schedules.model import Schedule
-from backend.app.schedules.schema import ScheduleCreate, ScheduleUpdate
+from app.schedules.model import Schedule
+from app.schedules.schema import ScheduleCreate, ScheduleUpdate
 
 
 def create_schedule(db: Session, payload: ScheduleCreate) -> Schedule:

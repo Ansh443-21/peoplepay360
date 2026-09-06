@@ -11,13 +11,13 @@ resolver returns, keeping "compute" and "record" separate.
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from backend.app.payroll_engine.context import CalculationContext
-from backend.app.payroll_engine.exceptions import (
+from app.payroll_engine.context import CalculationContext
+from app.payroll_engine.exceptions import (
     MissingFixedAmountError,
     MissingPercentageBaseError,
     MissingPercentageError,
 )
-from backend.app.payroll_engine.safe_eval import safe_eval_formula
+from app.payroll_engine.safe_eval import safe_eval_formula
 
 _CENTS = Decimal("0.01")
 DEFAULT_PERCENTAGE_BASE_CODE = "BASIC"

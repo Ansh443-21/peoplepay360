@@ -5,9 +5,9 @@ from fastapi import HTTPException, status
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session
 
-from backend.app.contracts.model import Contract
-from backend.app.contracts.schema import ContractCreate, ContractUpdate
-from backend.app.employees.model import Employee
+from app.contracts.model import Contract
+from app.contracts.schema import ContractCreate, ContractUpdate
+from app.employees.model import Employee
 
 
 def create_contract(db: Session, payload: ContractCreate) -> Contract:

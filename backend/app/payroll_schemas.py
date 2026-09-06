@@ -11,7 +11,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.app.payroll_models import PayrunStatus
+from app.payroll_models import PayrunStatus
 
 
 # ---------------------------------------------------------------------------
