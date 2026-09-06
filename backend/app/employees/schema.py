@@ -46,3 +46,14 @@ class EmployeeResponse(EmployeeBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EmployeeSingleResponse(BaseModel):
+    success: bool
+    data: EmployeeResponse
+
+
+class EmployeeListResponse(BaseModel):
+    success: bool
+    data: list[EmployeeResponse]
+    pagination: dict    
