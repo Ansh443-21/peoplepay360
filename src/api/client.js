@@ -76,8 +76,8 @@ export const authApi = {
 
 // Employees API services
 export const employeesApi = {
-  getAll: async () => {
-    const response = await apiClient.get('/employees/')
+  getAll: async (params = {}) => {
+    const response = await apiClient.get('/employees/', { params })
     return response.data
   },
 

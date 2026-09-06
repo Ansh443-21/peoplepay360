@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Search, Plus, MoreHorizontal, Mail, LayoutGrid, List, AlertCircle, RefreshCw, Loader2, Edit2, Lock } from 'lucide-react'
+import { Search, Plus, MoreHorizontal, Mail, LayoutGrid, List, AlertCircle, RefreshCw, Loader2, Edit2, Lock, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useAuth, ROLES } from '../../context/AuthContext.jsx'
 import { employeesApi } from '../../api/client.js'
 import './Employees.css'
@@ -18,8 +18,19 @@ const normalizeEmployee = (emp) => {
   const firstName = emp.first_name || (emp.name ? emp.name.split(' ')[0] : '') || ''
   const lastName = emp.last_name || (emp.name ? emp.name.split(' ').slice(1).join(' ') : '') || ''
   const fullName = emp.full_name || (emp.first_name && emp.last_name ? `${emp.first_name} ${emp.last_name}` : emp.name) || 'Unnamed'
-  const departmentName = emp.department_name || emp.department || 'Engineering'
   const jobPosition = emp.job_position || emp.role || 'Employee'
+
+  let defaultDept = 'Engineering'
+  const posLower = jobPosition.toLowerCase()
+  if (posLower.includes('hr') || posLower.includes('human')) {
+    defaultDept = 'Human Resources'
+  } else if (posLower.includes('finance') || posLower.includes('account')) {
+    defaultDept = 'Finance'
+  } else if (posLower.includes('design') || posLower.includes('ui') || posLower.includes('ux')) {
+    defaultDept = 'Design'
+  }
+
+  const departmentName = emp.department_name || emp.department || defaultDept
   const empType = emp.employee_type || emp.type || 'Full Time'
   const empStatus = emp.status ? (emp.status.charAt(0).toUpperCase() + emp.status.slice(1).toLowerCase()) : 'Active'
 
@@ -45,11 +56,14 @@ const normalizeEmployee = (emp) => {
 }
 
 function Employees() {
-  const [employeeList, setEmployeeList] = useState(() => initialMockEmployees.map(normalizeEmployee))
+  const [employeeList, setEmployeeList] = useState([])
   const [loading, setLoading] = useState(true)
   const [apiError, setApiError] = useState(null)
   const [isFallback, setIsFallback] = useState(false)
 
+  // Pagination and filter states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
   const [search, setSearch] = useState('')
   const [department, setDepartment] = useState('All Departments')
   const [view, setView] = useState('list')
@@ -72,23 +86,49 @@ function Employees() {
   }
   const [formData, setFormData] = useState(initialForm)
 
-  // Fetch employees from API on mount
+  // Fetch employees from API on mount - loads all backend records across pages
   const fetchEmployees = async () => {
     setLoading(true)
     setApiError(null)
     try {
-      const response = await employeesApi.getAll()
-      // FastAPI envelope: { success: true, data: [...], pagination: {...} } or raw array / items
-      const rawList = Array.isArray(response)
-        ? response
-        : Array.isArray(response?.data)
-        ? response.data
-        : Array.isArray(response?.items)
-        ? response.items
+      // 1. Fetch initial batch of up to 100 items (backend's maximum page_size)
+      const firstRes = await employeesApi.getAll({ page: 1, page_size: 100 })
+      
+      let allItems = []
+      const firstBatch = Array.isArray(firstRes)
+        ? firstRes
+        : Array.isArray(firstRes?.data)
+        ? firstRes.data
+        : Array.isArray(firstRes?.items)
+        ? firstRes.items
         : null
 
-      if (rawList) {
-        setEmployeeList(rawList.map(normalizeEmployee))
+      if (firstBatch) {
+        allItems = [...firstBatch]
+        const pagination = firstRes?.pagination
+        const total = pagination?.total || allItems.length
+        const totalPages = Math.ceil(total / 100)
+
+        // 2. If there are more pages (e.g. 250 items total = 3 pages of 100), fetch remaining in parallel
+        if (totalPages > 1) {
+          const pagePromises = []
+          for (let p = 2; p <= totalPages; p++) {
+            pagePromises.push(employeesApi.getAll({ page: p, page_size: 100 }))
+          }
+          const additionalResults = await Promise.allSettled(pagePromises)
+          additionalResults.forEach((res) => {
+            if (res.status === 'fulfilled') {
+              const batch = Array.isArray(res.value)
+                ? res.value
+                : Array.isArray(res.value?.data)
+                ? res.value.data
+                : []
+              allItems.push(...batch)
+            }
+          })
+        }
+
+        setEmployeeList(allItems.map(normalizeEmployee))
         setIsFallback(false)
       } else {
         // Fallback to local mock if data is unexpected
@@ -114,6 +154,14 @@ function Employees() {
   const isEmployeeRole = role === ROLES.EMPLOYEE
   const canAddEmployee = isRole(ROLES.HR, ROLES.ADMIN)
 
+  // Dynamically collect unique departments from the loaded employee records
+  const availableDepartments = useMemo(() => {
+    const standardDepts = ['Human Resources', 'Engineering', 'Finance', 'Design']
+    const loadedDepts = employeeList.map((e) => e.department).filter(Boolean)
+    return Array.from(new Set([...standardDepts, ...loadedDepts]))
+  }, [employeeList])
+
+  // Filter employees by role, search keyword, and department
   const filteredEmployees = useMemo(() => {
     return employeeList.filter((employee) => {
       // If EMPLOYEE role, restrict to own profile
@@ -121,11 +169,13 @@ function Employees() {
         return false
       }
 
+      const q = search.trim().toLowerCase()
       const matchesSearch =
-        employee.name.toLowerCase().includes(search.toLowerCase()) ||
-        employee.role.toLowerCase().includes(search.toLowerCase()) ||
-        employee.email.toLowerCase().includes(search.toLowerCase()) ||
-        (employee.employee_code && employee.employee_code.toLowerCase().includes(search.toLowerCase()))
+        !q ||
+        (employee.name && employee.name.toLowerCase().includes(q)) ||
+        (employee.role && employee.role.toLowerCase().includes(q)) ||
+        (employee.email && employee.email.toLowerCase().includes(q)) ||
+        (employee.employee_code && employee.employee_code.toLowerCase().includes(q))
 
       const matchesDepartment =
         department === 'All Departments' || employee.department === department
@@ -133,6 +183,15 @@ function Employees() {
       return matchesSearch && matchesDepartment
     })
   }, [employeeList, search, department, isEmployeeRole, employeeId])
+
+  // Pagination calculation
+  const totalEmployees = filteredEmployees.length
+  const totalPages = Math.max(1, Math.ceil(totalEmployees / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const paginatedEmployees = useMemo(() => {
+    const startIdx = (safeCurrentPage - 1) * pageSize
+    return filteredEmployees.slice(startIdx, startIdx + pageSize)
+  }, [filteredEmployees, safeCurrentPage, pageSize])
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -305,19 +364,24 @@ function Employees() {
             type="text"
             placeholder="Search employees..."
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value)
+              setCurrentPage(1)
+            }}
           />
         </div>
 
         <select
           value={department}
-          onChange={(event) => setDepartment(event.target.value)}
+          onChange={(event) => {
+            setDepartment(event.target.value)
+            setCurrentPage(1)
+          }}
         >
           <option>All Departments</option>
-          <option>Human Resources</option>
-          <option>Engineering</option>
-          <option>Finance</option>
-          <option>Design</option>
+          {availableDepartments.map((dept) => (
+            <option key={dept} value={dept}>{dept}</option>
+          ))}
         </select>
 
         <div className="view-toggle">
@@ -358,16 +422,18 @@ function Employees() {
             </thead>
 
             <tbody>
-              {filteredEmployees.map((employee) => (
+              {paginatedEmployees.map((employee) => (
                 <tr key={employee.id}>
                   <td>
                     <div className="employee-cell">
                       <div className="avatar">
-                        {employee.name
+                        {(employee.name || 'Unnamed')
                           .split(' ')
+                          .filter(Boolean)
                           .map((part) => part[0])
                           .join('')
-                          .slice(0, 2)}
+                          .slice(0, 2)
+                          .toUpperCase()}
                       </div>
                       <div>
                         <strong>{employee.name}</strong>
@@ -420,15 +486,17 @@ function Employees() {
         </div>
       ) : (
         <div className="employee-grid">
-          {filteredEmployees.map((employee) => (
+          {paginatedEmployees.map((employee) => (
             <div className="employee-card" key={employee.id}>
               <div className="card-top">
                 <div className="avatar large">
-                  {employee.name
+                  {(employee.name || 'Unnamed')
                     .split(' ')
+                    .filter(Boolean)
                     .map((part) => part[0])
                     .join('')
-                    .slice(0, 2)}
+                    .slice(0, 2)
+                    .toUpperCase()}
                 </div>
                 <div style={{ position: 'relative' }}>
                   <button
@@ -466,6 +534,65 @@ function Employees() {
               </div>
             </div>
           ))}
+
+          {filteredEmployees.length === 0 && (
+            <div className="empty-state" style={{ gridColumn: '1 / -1' }}>No employees found.</div>
+          )}
+        </div>
+      )}
+
+      {/* Pagination Bar */}
+      {totalEmployees > 0 && (
+        <div className="employees-pagination-bar">
+          <div className="pagination-info">
+            Showing <strong>{Math.min((safeCurrentPage - 1) * pageSize + 1, totalEmployees)}</strong> - <strong>{Math.min(safeCurrentPage * pageSize, totalEmployees)}</strong> of <strong>{totalEmployees}</strong> employees
+          </div>
+
+          <div className="pagination-controls">
+            <div className="page-size-selector">
+              <span>Per page:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value))
+                  setCurrentPage(1)
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+
+            <div className="pagination-nav-buttons">
+              <button
+                type="button"
+                className="pagination-btn"
+                disabled={safeCurrentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={16} />
+                <span>Prev</span>
+              </button>
+
+              <span className="pagination-page-indicator">
+                Page {safeCurrentPage} of {totalPages}
+              </span>
+
+              <button
+                type="button"
+                className="pagination-btn"
+                disabled={safeCurrentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                aria-label="Next page"
+              >
+                <span>Next</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
